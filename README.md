@@ -1,5 +1,7 @@
 # MerchantAI
 
+**Live: https://merchant-growth-ai.vercel.app**
+
 An AI business copilot for merchants — built for the **Merchant Growth AI** track.
 
 MerchantAI reads a merchant's business data and answers the three questions a
@@ -148,16 +150,26 @@ relative `/api/...` paths — there is no production API URL to configure.
 | `api/requirements.txt` | Runtime-only dependencies (no pytest in the function bundle) |
 | `.vercelignore` | Keeps tests, docs and virtualenvs out of the bundle |
 
-**To deploy** (requires a Vercel account — the CLI needs an interactive login):
+The app is deployed at **https://merchant-growth-ai.vercel.app**.
 
-```bash
-npm i -g vercel
-vercel login
-vercel --prod
+```
+/          -> frontend/index.html   (static Vite build)
+/assets/*  -> frontend/assets/*      (static)
+/api/*     -> api/index.py           (FastAPI serverless function)
 ```
 
-Or import `manthandhanraj/MerchantAI` at vercel.com/new, which picks up
-`vercel.json` automatically.
+`vercel.json` uses an explicit `builds` + `routes` configuration. Both parts
+matter: `builds` overrides Vercel's auto-detected FastAPI framework preset,
+which would otherwise make the Python function a catch-all at `/`; and legacy
+`routes` preserve the request path, so `/api/health` reaches FastAPI's
+`/api/health` rather than being rewritten away.
+
+**To deploy** (requires a Vercel account):
+
+```bash
+npx vercel login
+npx vercel --prod
+```
 
 After deploying, check `/api/health` first — it confirms the function booted and
 found the dataset.
@@ -210,7 +222,7 @@ Vercel runs the function directly.
 | 6 | Forecasting + AI assistant | ✅ Complete |
 | 7 | Full integration → working MVP | ✅ Complete |
 | 8 | Testing, debugging, optimisation, cleanup | ✅ Complete |
-| 9 | GitHub + deployment | GitHub ✅ · deploy pending login |
+| 9 | GitHub + deployment | ✅ Complete — [live](https://merchant-growth-ai.vercel.app) |
 | 10 | Report + presentation | |
 
 ## Testing

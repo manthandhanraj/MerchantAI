@@ -1,210 +1,221 @@
-# Stage 9 — GitHub Push + Deployment
+# Stage 9 — GitHub Push + Production Deployment
 
-**GitHub push: complete and independently verified.**
-**Vercel deployment: blocked on authentication that only the account owner can provide.**
-
-No live URL is claimed below, because none was created. The deployment
-configuration is written, committed and validated as far as it can be without
-deploying.
-
-## 1–3. Repository
+**Complete and verified.** The production URL serves the MerchantAI dashboard,
+the API works from the same origin, and every result below was checked against
+the live site.
 
 | | |
 | --- | --- |
-| Repository | https://github.com/manthandhanraj/MerchantAI |
-| Branch | `main` |
-| Commit | `11667470995735204c36bed009d6a8e6b82ba17e` |
-| Contents | 108 files, 27,047 insertions |
-| Visibility | Public |
+| **Production URL** | https://merchant-growth-ai.vercel.app |
+| **Repository** | https://github.com/manthandhanraj/MerchantAI |
+| **Branch** | `main` |
+| **Vercel project** | `merchant-growth-ai` (`prj_NJUJTobUto8GyqbRurBNNHh09YQ9`) |
+| **Deployment ID** | `dpl_H6LwzzLHmVLbnTAMV5UWKHn3hguF` |
+| **Deployment URL** | https://merchant-growth-mj95jvtjc-personal-9b7b.vercel.app |
 
-### Verified, not assumed
+## The problem
 
-The push was confirmed four independent ways:
+The previous deployment returned FastAPI JSON at the root:
 
-1. `git ls-remote origin refs/heads/main` returns the same SHA as local `HEAD`.
-2. The GitHub REST API reports that commit on `main`, authored by
-   `manthandhanraj`, 108 files, `pushed_at 2026-09-16T18:01:58Z`.
-3. Raw fetches of `README.md`, `vercel.json`, `api/index.py`, `runner.py`,
-   `backend/app/main.py`, `data/raw/merchant_sales.csv` and `.gitignore` all
-   return HTTP 200 with non-zero size.
-4. `data/raw/merchant_sales.csv` downloaded from GitHub is **byte-identical** to
-   the local file (298,735 bytes, 0 CRLF, 4,815 LF).
+```
+GET /             200  application/json   {"app":"MerchantAI","docs":"/docs",...}
+GET /api/health   404                     <- the API was broken too
+GET /index.html   404                     <- no frontend deployed at all
+```
 
-### Pre-push safety
+## Root causes — two, not one
 
-The target repository was empty (`git ls-remote --heads` returned **0 refs**,
-API size 0 KB), so nothing was overwritten and **no force push was used or
-needed**. History starts clean at this commit.
+Diagnosed from `vercel project inspect` and the live responses, not guessed.
 
-## 4–6. Deployment status
+**1. The project's Framework Preset was `FastAPI`.**
+Vercel auto-detected the preset from `api/index.py` + `requirements.txt`. That
+preset makes the Python function a **catch-all at `/`** and ignores the static
+output directory entirely — which is why `/` returned JSON and `/index.html`
+404'd. The `buildCommand` and `outputDirectory` in `vercel.json` were being
+overridden by the preset.
 
-**Not deployed.** The Vercel CLI (v59.19.0) installs and runs, but reports:
+**2. The `rewrites` rule was destroying the API path.**
+`{"source": "/api/(.*)", "destination": "/api/index"}` **replaces** the path, so
+FastAPI received `/api/index` — a route that does not exist — and returned 404
+for every real endpoint. This was the risk flagged as unverifiable in the
+previous Stage 9 report; deploying confirmed it.
+
+**3. (found during the fix) `@vercel/static-build` prefixes its output.**
+After switching to an explicit build config, the frontend built correctly but
+landed at `/frontend/index.html` and `/frontend/assets/…`, while Vite's HTML
+references absolute `/assets/…`. Root was 404 until the asset route was mapped.
+
+## The fix
+
+`vercel.json` now uses an explicit build + route configuration:
 
 ```json
-{ "loggedIn": false, "status": "action_required", "reason": "login_required",
-  "userActionRequired": true, "retryable": false }
+{
+  "version": 2,
+  "builds": [
+    { "src": "frontend/package.json", "use": "@vercel/static-build",
+      "config": { "distDir": "dist" } },
+    { "src": "api/index.py", "use": "@vercel/python",
+      "config": { "includeFiles": "{backend/**,data/raw/**}" } }
+  ],
+  "routes": [
+    { "src": "/api/(.*)",    "dest": "/api/index.py" },
+    { "src": "/assets/(.*)", "dest": "/frontend/assets/$1" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)",        "dest": "/frontend/index.html" }
+  ]
+}
 ```
 
-`vercel build` fails the same way. There is no `VERCEL_TOKEN`, no `~/.vercel`
-config and no `.vercel/` directory on this machine — checked before attempting
-anything. Authentication requires an interactive browser login or a token that
-only the account owner can issue.
+Why each part matters:
 
-### To deploy
+- **`builds` overrides the framework preset.** The build log confirms it:
+  *"Due to `builds` existing in your configuration file, the Build and
+  Development Settings defined in your Project Settings will not apply."*
+  That is what stops FastAPI being a catch-all at `/`.
+- **`routes` preserve the request path.** Unlike `rewrites`, a legacy route's
+  `dest` passes the original URL to the function, so `/api/health` reaches
+  FastAPI's `/api/health`.
+- **`/assets/(.*)` → `/frontend/assets/$1`** bridges Vite's absolute asset
+  paths to where `@vercel/static-build` actually placed them.
+- **`handle: filesystem` then a catch-all to `index.html`** serves real files
+  first and sends anything else to the SPA.
 
-Either:
+**No application code was changed.** No route, service, metric, business rule,
+schema or component was touched. `api/index.py` still re-exports the existing
+app unmodified.
 
-```bash
-npx vercel login      # interactive browser auth
-npx vercel --prod
+## Deployment architecture
+
+One Vercel project, two build outputs, one origin:
+
+```
+merchant-growth-ai.vercel.app
+  ├── /            -> frontend/index.html   (static, Vite build)
+  ├── /assets/*    -> frontend/assets/*     (static)
+  └── /api/*       -> api/index.py          (Python serverless, FastAPI)
 ```
 
-Or import `manthandhanraj/MerchantAI` at vercel.com/new — `vercel.json` is
-committed and will be picked up automatically.
+Same origin means the frontend keeps its relative `/api/...` paths: **no
+production API URL to configure and no CORS to arrange.**
 
-**First check after deploying:** `GET /api/health`. It returns
-`sales_data_present` and `llm_enabled`, which confirms in one request that the
-function booted, found the dataset, and left the model disabled.
+## Verification — all performed against the live site
 
-## 7. Deployment architecture
+### Root and assets
 
-**One Vercel project, not two.** The Vite build is served as static assets and
-the existing FastAPI app runs as a single Python serverless function under
-`/api`.
+| Request | Result |
+| --- | --- |
+| `GET /` | **200 `text/html`** — the React document, `<title>MerchantAI</title>` |
+| `GET /assets/index-CTe2j2zB.js` | 200, 35,328 bytes |
+| `GET /assets/index-Bu2OAkqt.css` | 200, 18,900 bytes |
+| `GET /assets/charts-Ccr9vapa.js` | 200, 557,652 bytes |
 
-This was chosen on evidence, not convention:
+The root no longer returns `{"app":"MerchantAI",...}`.
 
-- **The Python dependencies fit.** Measured at **~114 MB** unzipped
-  (pandas 68 MB, numpy 34 MB, the rest small) against Vercel's 250 MB function
-  limit. Had this not fit, a separate backend host would have been necessary.
-- **Cold start is acceptable.** Measured over three fresh processes:
-  ~0.58 s import + ~0.05 s for the first request (which loads *and validates*
-  the 4,814-row dataset), then ~12 ms warm.
-- **Same origin removes a whole class of production bugs.** The frontend already
-  used relative `/api/...` paths, so there is **no production API URL to
-  configure and no CORS to arrange**. A two-deployment split would have
-  introduced both for no benefit.
+### API — every existing endpoint, live
 
-A second deployment was therefore deliberately *not* created.
+All returned **200**:
 
-## 8. Tests
+`/api/health` · `/api/merchants` · `/api/dataset/summary` ·
+`/api/dataset/validation` · `/api/dashboard` · `/api/insights` ·
+`/api/recommendations` · `/api/action-plan` · `/api/forecast` ·
+`/api/assistant/status` · `POST /api/assistant/ask`
+
+No endpoint was invented; this list was taken from the application's own router.
+
+### Browser verification (1280×900)
+
+| Check | Result |
+| --- | --- |
+| Dashboard renders | **PASS** — `#root` populated, `<h1>MerchantAI</h1>` |
+| Sections | Trends → AI insights → Action plan → Revenue forecast → Assistant |
+| KPI cards | ₹34,64,429 · 2,362 · 2,111 · ₹10,41,631 · ₹1,467 |
+| Merchant selector | Populated from the API: M001–M004 with product counts |
+| Charts | 10 Recharts surfaces drawn |
+| Insights | 6 finding cards |
+| Action plan | 8 ranked action cards |
+| Forecast | "Falling trend" badge, chart rendered |
+| Assistant | Panel present; answered a starter question |
+| Blank screen / JSON at root | **None** |
+| Panel error boundaries triggered | **0** |
+| Horizontal overflow | **None** |
+| **Console errors** | **None** |
+
+### Network — no localhost, no CORS
+
+Every request the page made, captured live:
+
+```
+GET https://merchant-growth-ai.vercel.app/                     200
+GET https://merchant-growth-ai.vercel.app/assets/*.js|.css     200 (x3)
+GET https://merchant-growth-ai.vercel.app/api/merchants        200
+GET https://merchant-growth-ai.vercel.app/api/assistant/status 200
+GET https://merchant-growth-ai.vercel.app/api/dashboard?...    200
+GET https://merchant-growth-ai.vercel.app/api/action-plan?...  200
+GET https://merchant-growth-ai.vercel.app/api/insights?...     200
+GET https://merchant-growth-ai.vercel.app/api/forecast?...     200
+```
+
+**All same-origin. Zero `localhost`, zero `127.0.0.1`, zero CORS errors.**
+
+### Interaction, live
+
+| Action | Result |
+| --- | --- |
+| Initial (M001, 30d) | ₹34,64,429 · "Smart Watch grew 34.7%" · "Give Smart Watch more room to grow" |
+| Switch to M003 | ₹1,78,893 · "Cold Coffee declined 25.7% versus the previous 30 days" |
+| "All" preset (180d) | ₹13,35,231 · "Cold Coffee declined 30.4% versus the first half of the period" |
+| Ask the assistant | Answered from the action plan |
+| Error boundaries during all of it | 0 |
+
+**₹13,35,231 matches the M003 total documented in Stage 2 exactly**, confirming
+the deployed function is reading the real committed dataset — and the
+`within_period` comparison fallback works in production.
+
+## Tests
 
 | | |
 | --- | --- |
 | Backend | **507 passed** (1 upstream warning) |
 | Frontend | **73 passed** |
-| Total | **580** |
-| Build | **PASS** — 1.59 s |
-| `runner.py --check` | **PASS** |
+| Build | **PASS** — 1.55 s |
 
 No regression from Stage 8.
 
-## 9. Live verification
-
-**Not performed — there is no live deployment to verify.** Claiming otherwise
-would be fabrication.
-
-What *was* verified, locally and against the committed configuration:
-
-| Check | Result | How |
-| --- | --- | --- |
-| API through the Vercel entry point | **11/11 endpoints 200** | `api/index.py` served via TestClient |
-| API inside a **simulated serverless bundle** | **9/9 endpoints 200** | Copied only `api/` + `includeFiles` into a temp dir, booted there |
-| Dataset resolves inside that bundle | PASS | `sales_data_present: true` |
-| LLM disabled in that bundle | PASS | `llm_enabled: false` |
-| Bundle excludes dev files | PASS | no `runner.py`, `tests/`, `.venv` present |
-| `buildCommand` from `vercel.json` | PASS | run verbatim; produced `frontend/dist` |
-| `includeFiles` globs | PASS | `backend/**` → 68 paths, `data/raw/**` → 3 |
-| No production localhost dependency | PASS | **0 occurrences of `localhost` in the built bundle**; none anywhere in `frontend/src/` |
-
-The simulated bundle is the strongest evidence available without deploying: it
-proves the function can boot, find its data and serve every endpoint using only
-the files `vercel.json` ships.
-
-## 10. Environment variables
-
-**None are required.** The synthetic dataset ships with the function, and the
-assistant answers from it offline.
-
-Optional, names only:
-
-| Variable | Default | Notes |
-| --- | --- | --- |
-| `LLM_ENABLED` | `false` | Production-safe default, preserved |
-| `LLM_API_KEY` | empty | Only read when `LLM_ENABLED=true`; set as a Vercel secret, never committed |
-| `LLM_PROVIDER` | `anthropic` | |
-| `LLM_MODEL` | `claude-sonnet-5` | |
-| `CORS_ORIGINS` | localhost | Only needed if the API is ever split to another origin |
-| `API_HOST`, `API_PORT` | `127.0.0.1`, `8000` | Local only; Vercel manages the function's address |
-
-No secret value appears in this document, the repository, or any log.
-
-## 11. Files changed for Stage 9
-
-**Created**
-
-- `vercel.json` — build command, static output, `/api/(.*)` rewrite, function limits
-- `api/index.py` — serverless entry; re-exports the existing app unchanged
-- `api/requirements.txt` — runtime-only deps (no pytest in the function bundle)
-- `.vercelignore` — keeps tests, docs, virtualenvs out of the bundle
-- `.gitattributes` — forces LF (see §12)
-- `docs/STAGE_9_COMPLETION.md`
+## Files changed for Stage 9
 
 **Modified**
+- `vercel.json` — the routing fix described above
+- `.gitignore` — `.vercel` (added by the Vercel CLI) and deck build artifacts
 
-- `.gitignore` — added `.env.*` with `!.env.example`, `build/`, `.vercel/`, `*.p12`, `*.pfx`, `credentials.json`
-- `README.md` — Deployment section: architecture, deploy steps, production variables
+**Created earlier in Stage 9 and unchanged**
+- `api/index.py`, `api/requirements.txt`, `.vercelignore`, `.gitattributes`
 
-**No application code was changed.** No route, service, metric, business rule or
-component was touched. The deployed API is the same one `runner.py` serves.
+**Not committed, not deleted:** `.codex-build/`, `.codex-finalizer/`,
+`.chart-data-*/` and `output/` appeared in the working tree from separate
+slide-deck tooling (~28 MB of PPTX files, rendered slides and Chrome profiles).
+They are not part of this application, so they were added to `.gitignore` and
+**left untouched on disk** rather than committed or removed.
 
-## 12. Problems encountered
+## Limitations
 
-**1. Line endings would have broken dataset reproducibility.**
-Staging produced CRLF warnings on all 80+ text files. Stage 2 specifies LF-only
-CSVs and byte-identical regeneration; a Windows clone would have received CRLF,
-and `python data/generate_dataset.py` would then have reported every one of
-4,814 lines as changed. Fixed with `.gitattributes` (`* text=auto eol=lf`).
-Verified: the CSV on GitHub has **0 CRLF, 4,815 LF, byte-identical to local**.
+- **Cold starts reload the dataset.** ~0.65 s per cold serverless instance
+  (measured locally: 0.58 s import + 0.05 s load and validate). The in-memory
+  cache is per-instance, so concurrent instances each hold a copy. Fine at this
+  data size; it would not suit a large dataset.
+- **The assistant is offline by default.** `LLM_ENABLED=false` in production and
+  no key is set, so answers are composed from the merchant's own computed data.
+  **No live LLM call has ever been made**, so nothing is claimed about model
+  output quality.
+- **GitHub→Vercel auto-deploy is not wired up.** Deployments are currently made
+  with `vercel --prod`. Connecting the repository is a one-time action in the
+  Vercel dashboard (Settings → Git) or `vercel git connect`.
+- All Stage 1–8 data caveats carry over: synthetic data, gross profit excludes
+  overheads, customer counts are visits over multi-day windows, inventory is
+  inferred, the data shows what changed rather than why, and the forecast
+  reports measured error (~20–53% MAPE) with no confidence interval.
 
-**2. `npm install` reintroduced CRLF into `package-lock.json`.**
-Running the build command to validate it left the working tree dirty. `git diff`
-showed **no content change** — purely line endings. Resolved with
-`git add --renormalize`; the tree is now clean with no staged difference.
+## Status
 
-**3. Vercel authentication is unavailable.**
-Established before attempting anything: no `VERCEL_TOKEN`, no `~/.vercel`, no
-`.vercel/`. The CLI confirms `retryable: false, userActionRequired: true`. This
-is not a bug and there is no workaround available to an automated session — a
-Vercel login is a human action.
-
-No application bugs were found. Nothing was hidden.
-
-## 13. Remaining limitations
-
-- **The deployment is unverified because it does not exist.** The configuration
-  is reasoned and locally simulated, but Vercel's routing of
-  `/api/(.*)` → `/api/index` into the ASGI scope is the one aspect that cannot
-  be proven without deploying. If the first `/api/health` request 404s after
-  deploying, that rewrite is the place to look.
-- **Serverless cold starts reload the dataset.** ~0.65 s per cold instance. The
-  in-memory cache is per-instance, so concurrent instances each hold their own
-  copy. Fine at this data size; it would not scale to a large dataset.
-- **`runner.py` is a development tool**, not a production process manager.
-  Vercel invokes the function directly and ignores it.
-- All Stage 1–8 limitations carry over unchanged: synthetic data, gross profit
-  excludes overheads, customer counts are visits over multi-day windows,
-  inventory is inferred, the data shows what changed rather than why, forecast
-  MAPE ~20–53% with no confidence interval, and **no live LLM call has ever been
-  made** — nothing is claimed about real model output.
-
-## 14. Status
-
-**Stage 9 is partially complete.**
-
-- ✅ GitHub push — done and independently verified
-- ✅ Deployment configuration — written, committed, locally validated
-- ⏸️ Vercel deployment — **blocked on a login only the account owner can perform**
-
-Stage 9 will be complete once `vercel login && vercel --prod` has been run and
-the resulting URL verified.
+**STAGE 9 COMPLETE** — the production URL opens the MerchantAI dashboard, and
+the API works.

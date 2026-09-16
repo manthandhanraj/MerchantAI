@@ -1,0 +1,31 @@
+# MerchantAI - Python backend dependencies
+# Install:  pip install -r requirements.txt
+#
+# Every entry below is used by the current stage. Dependencies for later
+# stages are listed at the bottom (commented) and only enabled when needed.
+
+# ---------- API ----------
+fastapi>=0.115.0          # REST API framework
+uvicorn[standard]>=0.32.0 # ASGI server used to run FastAPI
+
+# ---------- Config & validation ----------
+pydantic>=2.9.0           # Request/response + dataset row validation
+pydantic-settings>=2.6.0  # Loads configuration from .env
+
+# ---------- Data / analytics ----------
+pandas>=2.2.0             # CSV loading, aggregation, trend analysis
+numpy>=1.26.0             # Numeric helpers behind the metrics layer
+
+# ---------- Testing ----------
+pytest>=8.3.0             # Test runner
+httpx2>=2.13.0            # Transport behind FastAPI's TestClient. Starlette now
+                          # deprecates plain `httpx` here; httpx2 is the same
+                          # author's successor and runs warning-free.
+
+# ---------- Optional ----------
+# scikit-learn>=1.5.0     # NOT needed. The Stage 6 forecast uses a least-squares
+#                         # trend plus weekday factors, which numpy already covers.
+#                         # Only add this if that baseline is shown to be insufficient.
+# anthropic>=0.40.0       # Only required when LLM_ENABLED=true. The assistant answers
+#                         # from the merchant's own data without it, so the app runs
+#                         # and every test passes with this left commented out.

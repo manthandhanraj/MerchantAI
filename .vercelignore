@@ -1,0 +1,15 @@
+# Keep the deployment bundle to what production actually needs.
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+tests/
+docs/
+ml/
+data/sample/
+data/processed/
+frontend/node_modules/
+frontend/dist/
+runner.py
+pytest.ini

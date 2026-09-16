@@ -1,0 +1,19 @@
+date,merchant_id,product,category,orders,units_sold,revenue,expenses,inventory
+2026-09-01,M001,Phone Case,Accessories,34,41,10250.00,5740.00,310
+2026-09-01,M001,Power Bank,Electronics,12,13,19500.00,13650.00,88
+2026-09-01,M001,Wireless Earbuds,Electronics,18,21,37800.00,26460.00,142
+2026-09-01,M002,Atta 5kg,Grocery,40,46,11960.00,9568.00,180
+2026-09-01,M002,Cooking Oil 1L,Grocery,55,63,9135.00,7308.00,240
+2026-09-01,M002,Tea Powder 500g,Beverages,25,28,6160.00,4620.00,95
+2026-09-02,M001,Phone Case,Accessories,31,38,9500.00,5320.00,272
+2026-09-02,M001,Power Bank,Electronics,8,9,13500.00,9450.00,79
+2026-09-02,M001,Wireless Earbuds,Electronics,14,17,30600.00,21420.00,125
+2026-09-02,M002,Atta 5kg,Grocery,44,52,13520.00,10816.00,128
+2026-09-02,M002,Cooking Oil 1L,Grocery,50,58,8410.00,6728.00,182
+2026-09-02,M002,Tea Powder 500g,Beverages,29,33,7260.00,5445.00,62
+2026-09-03,M001,Phone Case,Accessories,37,45,11250.00,6300.00,227
+2026-09-03,M001,Power Bank,Electronics,10,11,16500.00,11550.00,68
+2026-09-03,M001,Wireless Earbuds,Electronics,20,24,43200.00,30240.00,101
+2026-09-03,M002,Atta 5kg,Grocery,34,39,10140.00,8112.00,89
+2026-09-03,M002,Cooking Oil 1L,Grocery,61,71,10295.00,8236.00,111
+2026-09-03,M002,Tea Powder 500g,Beverages,22,24,5280.00,3960.00,38

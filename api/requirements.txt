@@ -1,0 +1,9 @@
+# Runtime dependencies for the Vercel serverless API.
+#
+# Deliberately narrower than the root requirements.txt: pytest and httpx2 are
+# test-only and have no place in a production function bundle.
+fastapi>=0.115.0
+pydantic>=2.9.0
+pydantic-settings>=2.6.0
+pandas>=2.2.0
+numpy>=1.26.0

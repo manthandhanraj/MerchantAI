@@ -1,0 +1,20 @@
+# Normalise line endings so a clone on any OS matches what the tools expect.
+#
+# This matters most for the generated dataset: docs/DATA_SCHEMA.md specifies LF
+# endings, and `python data/generate_dataset.py` writes LF explicitly so the
+# output is byte-identical every run. Without this, a Windows clone would get
+# CRLF and regenerating would show every line as changed.
+* text=auto eol=lf
+
+*.csv text eol=lf
+*.py text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary

@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+/* Tailwind v4 keeps theme tokens in CSS rather than a JS config file. */
+@theme {
+  --color-brand: #0f766e;
+}
+
+/* Keep numeric columns in KPI cards and tooltips from shifting as values change. */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}

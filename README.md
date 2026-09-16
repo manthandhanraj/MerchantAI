@@ -196,6 +196,7 @@ Vercel runs the function directly.
 | [STAGE_6_COMPLETION.md](docs/STAGE_6_COMPLETION.md) | Stage 6 decisions and sign-off |
 | [STAGE_7_COMPLETION.md](docs/STAGE_7_COMPLETION.md) | Stage 7 decisions and sign-off |
 | [STAGE_8_COMPLETION.md](docs/STAGE_8_COMPLETION.md) | Stage 8 audit, fixes and sign-off |
+| [STAGE_9_COMPLETION.md](docs/STAGE_9_COMPLETION.md) | Stage 9 push, deployment config and status |
 
 ## Development roadmap
 
@@ -209,7 +210,7 @@ Vercel runs the function directly.
 | 6 | Forecasting + AI assistant | ✅ Complete |
 | 7 | Full integration → working MVP | ✅ Complete |
 | 8 | Testing, debugging, optimisation, cleanup | ✅ Complete |
-| 9 | GitHub + deployment | Next |
+| 9 | GitHub + deployment | GitHub ✅ · deploy pending login |
 | 10 | Report + presentation | |
 
 ## Testing

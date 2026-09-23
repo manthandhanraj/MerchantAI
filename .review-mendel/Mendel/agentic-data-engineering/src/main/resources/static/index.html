@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mendel — Agentic DataOps</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#070b16;
+    --bg2:#0a1020;
+    --panel:#0d1628;
+    --panel2:#101c34;
+    --line:rgba(88,166,255,.14);
+    --line2:rgba(88,166,255,.28);
+    --txt:#e8f0ff;
+    --muted:#8394b5;
+    --dim:#5d6c8c;
+    --cyan:#22d3ee;
+    --blue:#3b82f6;
+    --purple:#a855f7;
+    --pink:#f472b6;
+    --pink2:#f0509c;
+    --green:#22e0a1;
+    --amber:#f5b544;
+    --red:#ff5a6a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:'Inter',system-ui,sans-serif;
+    background:
+      radial-gradient(1100px 600px at 80% -10%, rgba(59,130,246,.10), transparent 60%),
+      radial-gradient(900px 500px at 10% 110%, rgba(168,85,247,.10), transparent 60%),
+      var(--bg);
+    color:var(--txt);
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  .app{display:grid;grid-template-columns:236px 1fr;min-height:100vh}
+
+  /* ---------- sidebar ---------- */
+  .side{
+    background:linear-gradient(180deg,var(--bg2),#080d1a);
+    border-right:1px solid var(--line);
+    padding:20px 14px;position:sticky;top:0;height:100vh;
+    display:flex;flex-direction:column;gap:6px;
+  }
+  .brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px}
+  .brand .logo{width:38px;height:38px;border-radius:11px;flex:none;
+    box-shadow:0 0 18px rgba(34,224,161,.35)}
+  .brand h1{font-family:'Rajdhani';font-weight:700;font-size:20px;letter-spacing:1px;line-height:1}
+  .brand span{font-size:10.5px;color:var(--cyan);letter-spacing:2px;text-transform:uppercase}
+  .nav{display:flex;flex-direction:column;gap:3px;margin-top:2px}
+  .nav a{
+    display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;
+    color:var(--muted);font-size:13.5px;font-weight:500;text-decoration:none;
+    border:1px solid transparent;cursor:pointer;transition:.15s;position:relative;
+  }
+  .nav a svg{width:18px;height:18px;flex:none;opacity:.85}
+  .nav a:hover{color:var(--txt);background:rgba(59,130,246,.08)}
+  .nav a.active{
+    color:#fff;background:linear-gradient(90deg,rgba(34,211,238,.16),rgba(59,130,246,.06));
+    border-color:var(--line2);
+  }
+  .nav a.active::before{
+    content:"";position:absolute;left:-14px;top:8px;bottom:8px;width:3px;border-radius:3px;
+    background:var(--cyan);box-shadow:0 0 10px var(--cyan);
+  }
+  .side-foot{margin-top:auto;padding:12px 10px;border-top:1px solid var(--line);
+    display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
+  .avatar{width:30px;height:30px;border-radius:50%;flex:none;
+    background:linear-gradient(135deg,var(--cyan),var(--purple));
+    display:grid;place-items:center;font-weight:700;color:#04101f;font-size:12px}
+
+  /* ---------- main ---------- */
+  .main{padding:22px 26px 40px;min-width:0}
+  .topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px}
+  .topbar h2{font-family:'Rajdhani';font-weight:700;font-size:26px;letter-spacing:3px}
+  .topbar .sub{color:var(--dim);font-size:12.5px;margin-top:2px}
+  .status-pill{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);
+    border:1px solid var(--line);padding:7px 12px;border-radius:20px;background:rgba(13,22,40,.6)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--green);
+    box-shadow:0 0 8px var(--green);animation:pulse 1.8s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+  /* stat cards */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+  .card{
+    background:linear-gradient(160deg,var(--panel),var(--bg2));
+    border:1px solid var(--line);border-radius:16px;padding:16px 16px 15px;position:relative;overflow:hidden;
+    transition:.18s;
+  }
+  .card:hover{border-color:var(--line2);transform:translateY(-2px)}
+  .card .ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;margin-bottom:12px}
+  .card .ic svg{width:18px;height:18px}
+  .card .val{font-family:'Rajdhani';font-weight:700;font-size:30px;line-height:1;letter-spacing:.5px}
+  .card .lbl{color:var(--muted);font-size:11px;letter-spacing:1.3px;text-transform:uppercase;margin-top:7px}
+  .card .glow{position:absolute;right:-30px;top:-30px;width:90px;height:90px;border-radius:50%;filter:blur(30px);opacity:.5}
+
+  .c-cyan .ic{background:rgba(34,211,238,.14);color:var(--cyan)} .c-cyan .val{color:var(--cyan);text-shadow:0 0 16px rgba(34,211,238,.5)} .c-cyan .glow{background:var(--cyan)}
+  .c-green .ic{background:rgba(34,224,161,.14);color:var(--green)} .c-green .val{color:var(--green);text-shadow:0 0 16px rgba(34,224,161,.5)} .c-green .glow{background:var(--green)}
+  .c-purple .ic{background:rgba(168,85,247,.16);color:var(--purple)} .c-purple .val{color:var(--purple);text-shadow:0 0 16px rgba(168,85,247,.5)} .c-purple .glow{background:var(--purple)}
+  .c-pink .ic{background:rgba(240,80,156,.16);color:var(--pink2)} .c-pink .val{color:var(--pink2);text-shadow:0 0 16px rgba(240,80,156,.5)} .c-pink .glow{background:var(--pink2)}
+  .c-blue .ic{background:rgba(59,130,246,.16);color:var(--blue)} .c-blue .val{color:#5b9bff;text-shadow:0 0 16px rgba(59,130,246,.5)} .c-blue .glow{background:var(--blue)}
+  .c-amber .ic{background:rgba(245,181,68,.16);color:var(--amber)} .c-amber .val{color:var(--amber);text-shadow:0 0 16px rgba(245,181,68,.45)} .c-amber .glow{background:var(--amber)}
+  .c-red .ic{background:rgba(255,90,106,.16);color:var(--red)} .c-red .val{color:var(--red);text-shadow:0 0 16px rgba(255,90,106,.5)} .c-red .glow{background:var(--red)}
+
+  /* panels row */
+  .row{display:grid;grid-template-columns:1.55fr 1fr;gap:16px}
+  .panel{background:linear-gradient(160deg,var(--panel),var(--bg2));border:1px solid var(--line);
+    border-radius:16px;padding:18px}
+  .panel h3{font-family:'Rajdhani';font-weight:600;font-size:15px;letter-spacing:1.5px;
+    text-transform:uppercase;color:#cdd9f0;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+  .panel h3 .bar{width:3px;height:15px;border-radius:2px;background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+
+  table{width:100%;border-collapse:collapse}
+  thead th{text-align:left;font-size:10.5px;letter-spacing:1.2px;text-transform:uppercase;
+    color:var(--dim);font-weight:600;padding:0 0 11px}
+  tbody td{padding:12px 0;border-top:1px solid rgba(88,166,255,.07);font-size:13.5px}
+  tbody tr:hover td{background:rgba(59,130,246,.04)}
+  .pname{font-weight:600;color:#dbe6fb}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;
+    padding:4px 10px;border-radius:20px}
+  .badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 6px currentColor}
+  .b-healthy{color:var(--green);background:rgba(34,224,161,.12)}
+  .b-warning{color:var(--amber);background:rgba(245,181,68,.12)}
+  .b-failed{color:var(--red);background:rgba(255,90,106,.12)}
+  .last{color:var(--muted)}
+  .rate{font-family:'Rajdhani';font-weight:700;font-size:15px}
+  .r-good{color:var(--green)} .r-warn{color:var(--amber)} .r-bad{color:var(--red)}
+
+  /* activity feed */
+  .feed{position:relative;padding-left:6px}
+  .fitem{display:flex;gap:13px;padding:11px 0;position:relative}
+  .fitem:not(:last-child)::after{content:"";position:absolute;left:6px;top:26px;bottom:-6px;width:1.5px;
+    background:linear-gradient(var(--line2),transparent)}
+  .fdot{width:13px;height:13px;border-radius:50%;flex:none;margin-top:3px;border:2px solid var(--bg2)}
+  .fd-cyan{background:var(--cyan);box-shadow:0 0 9px var(--cyan)}
+  .fd-purple{background:var(--purple);box-shadow:0 0 9px var(--purple)}
+  .fd-blue{background:var(--blue);box-shadow:0 0 9px var(--blue)}
+  .fd-green{background:var(--green);box-shadow:0 0 9px var(--green)}
+  .ftxt{font-size:13px;color:#d6e2f7;line-height:1.3}
+  .ftime{font-size:11px;color:var(--dim);margin-top:2px}
+  .btn-all{margin-top:14px;width:100%;padding:10px;border-radius:10px;cursor:pointer;
+    background:linear-gradient(90deg,rgba(34,211,238,.16),rgba(168,85,247,.16));
+    border:1px solid var(--line2);color:#dbeafe;font-size:12.5px;font-weight:600;font-family:'Inter'}
+  .btn-all:hover{border-color:var(--cyan);box-shadow:0 0 14px rgba(34,211,238,.2)}
+
+  /* generic section content (non-overview) */
+  .view{display:none}
+  .view.active{display:block;animation:fade .3s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+  .mini{font-size:12px;color:var(--muted);line-height:1.6}
+  .tag{display:inline-block;font-size:11px;padding:3px 9px;border-radius:14px;
+    border:1px solid var(--line2);color:var(--cyan);margin-right:6px;margin-bottom:6px}
+  .agentcard{display:flex;align-items:center;gap:12px}
+  .agentcard .ai{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;flex:none;
+    background:rgba(34,211,238,.12);color:var(--cyan)}
+  .agentcard .ai svg{width:20px;height:20px}
+  .bars{display:flex;align-items:flex-end;gap:12px;height:150px;padding-top:10px}
+  .bars .b{flex:1;border-radius:6px 6px 0 0;
+    background:linear-gradient(180deg,var(--cyan),rgba(59,130,246,.25));position:relative;min-width:0}
+  .bars .b span{position:absolute;bottom:-20px;left:0;right:0;text-align:center;font-size:10px;color:var(--dim)}
+  .logline{font-family:'Rajdhani';font-weight:500;font-size:13px;padding:7px 0;border-bottom:1px solid rgba(88,166,255,.06);
+    display:flex;gap:12px;letter-spacing:.4px}
+  .logline .t{color:var(--dim);flex:none}
+  .lg-ok{color:var(--green)} .lg-warn{color:var(--amber)} .lg-err{color:var(--red)} .lg-info{color:var(--cyan)}
+  .toggle{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid rgba(88,166,255,.07)}
+  .sw{width:40px;height:22px;border-radius:20px;background:rgba(34,211,238,.2);position:relative;cursor:pointer}
+  .sw::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;
+    background:var(--cyan);box-shadow:0 0 8px var(--cyan);transition:.2s}
+  .sw.off{background:rgba(93,108,140,.25)} .sw.off::after{left:20px;background:var(--dim);box-shadow:none}
+
+  .ai-face{width:120px;height:120px;opacity:.9;flex:none}
+
+  @media (max-width:960px){
+    .app{grid-template-columns:1fr}
+    .side{position:fixed;z-index:20;transform:translateX(-100%);transition:.25s;width:236px}
+    .side.open{transform:none}
+    .stats{grid-template-columns:repeat(2,1fr)}
+    .row{grid-template-columns:1fr}
+    .grid3{grid-template-columns:1fr}
+    .ai-face{display:none}
+    .menu-btn{display:grid!important}
+  }
+  .menu-btn{display:none;position:fixed;top:16px;right:16px;z-index:30;width:42px;height:42px;
+    border-radius:10px;background:var(--panel);border:1px solid var(--line2);place-items:center;color:var(--cyan);cursor:pointer}
+</style>
+</head>
+<body>
+<div class="menu-btn" id="menuBtn" aria-label="menu">
+  <svg viewBox="0 0 24 24" width="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+</div>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="side" id="side">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 256 256"><rect width="256" height="256" rx="56" fill="#047857"/>
+        <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M78 186 L78 74" stroke="#d1fae5" stroke-width="26"/>
+        <path d="M178 186 L178 74" stroke="#d1fae5" stroke-width="26"/>
+        <path d="M78 74 C 108 108, 112 122, 128 140 C 144 122, 148 108, 178 74" stroke="#d1fae5" stroke-width="19"/>
+        <path d="M96 80 C 116 104, 116 118, 128 132 C 140 118, 140 104, 160 80" stroke="#6ee7b7" stroke-width="12"/>
+        </g></svg>
+      <div><h1>MENDEL</h1><span>Agentic DataOps</span></div>
+    </div>
+    <nav class="nav" id="nav">
+      <a data-view="overview" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Overview</a>
+      <a data-view="pipelines"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="5" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="12" r="2"/><path d="M7 6h6a2 2 0 0 1 2 2v2M7 18h6a2 2 0 0 0 2-2v-2"/></svg>Pipelines</a>
+      <a data-view="schema"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18M8 18v3M16 18v3"/></svg>Schema Monitor</a>
+      <a data-view="agents"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="8" width="14" height="11" rx="2"/><path d="M12 8V4M9 3h6"/><circle cx="9.5" cy="13" r="1.2"/><circle cx="14.5" cy="13" r="1.2"/></svg>AI Agents</a>
+      <a data-view="healing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h4l2-5 3 10 2-6 2 3h5"/></svg>Self-Healing</a>
+      <a data-view="sources"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.6 3.6 3 8 3s8-1.4 8-3V5M4 11v6c0 1.6 3.6 3 8 3s8-1.4 8-3v-6"/></svg>Data Sources</a>
+      <a data-view="logs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg>Execution Logs</a>
+      <a data-view="analytics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Analytics</a>
+      <a data-view="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>Settings</a>
+    </nav>
+    <div class="side-foot">
+      <div class="avatar">M</div>
+      <div><div style="color:#dbe6fb;font-weight:600">Manthan</div><div style="font-size:11px">Admin</div></div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h2 id="pageTitle">OVERVIEW</h2>
+        <div class="sub" id="pageSub">Real-time agentic pipeline &amp; schema monitoring</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:18px">
+        <div class="status-pill"><span class="dot" id="statusDot"></span> <span id="statusText">Engine online</span></div>
+        <svg class="ai-face" viewBox="0 0 120 120" fill="none" aria-hidden="true">
+          <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs>
+          <path d="M40 30 h40 a8 8 0 0 1 8 8 v34 a20 20 0 0 1-20 20 h-16 a20 20 0 0 1-20-20 v-34 a8 8 0 0 1 8-8 z" stroke="url(#g)" stroke-width="2"/>
+          <circle cx="52" cy="56" r="4" fill="#22d3ee"/><circle cx="72" cy="56" r="4" fill="#a855f7"/>
+          <path d="M50 74 h24" stroke="#22d3ee" stroke-width="2" stroke-linecap="round"/>
+          <path d="M60 30 v-10 M52 18 h16" stroke="#22d3ee" stroke-width="2" stroke-linecap="round"/>
+          <path d="M40 44 h-12 M88 44 h12 M40 64 h-16 M88 64 h16" stroke="#3b82f6" stroke-width="1.5" opacity=".6"/>
+          <circle cx="24" cy="44" r="2.5" fill="#3b82f6"/><circle cx="104" cy="64" r="2.5" fill="#a855f7"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- ============ OVERVIEW ============ -->
+    <section class="view active" id="view-overview">
+      <div class="stats">
+        <div class="card c-cyan"><div class="glow"></div><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg></div><div class="val" id="st-datasets">24</div><div class="lbl">Total Pipelines</div></div>
+        <div class="card c-green"><div class="glow"></div><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l2-5 3 10 2-6 2 3h5"/></svg></div><div class="val" id="st-health">98.7%</div><div class="lbl">System Health</div></div>
+        <div class="card c-purple"><div class="glow"></div><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M5 8l7-5 7 5M5 16l7 5 7-5"/></svg></div><div class="val" id="st-changes">12</div><div class="lbl">Schema Changes</div></div>
+        <div class="card c-pink"><div class="glow"></div><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg></div><div class="val" id="st-decisions">47</div><div class="lbl">AI Decisions</div></div>
+        <div class="card c-green"><div class="glow"></div><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></div><div class="val" id="st-healed">39</div><div class="lbl">Auto-Healed</div></div>
+        <div class="card c-red"><div class="glow"></div><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg></div><div class="val" id="st-failed">2</div><div class="lbl">Failed Jobs</div></div>
+        <div class="card c-blue"><div class="glow"></div><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.6 3.1 3 7 3s7-1.4 7-3V6"/></svg></div><div class="val" id="st-sources">18</div><div class="lbl">Data Sources</div></div>
+        <div class="card c-purple"><div class="glow"></div><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="6" rx="2"/><rect x="3" y="13" width="18" height="6" rx="2"/><path d="M7 8h.01M7 16h.01"/></svg></div><div class="val">2.34 TB</div><div class="lbl">Storage Used</div></div>
+      </div>
+
+      <div class="row">
+        <div class="panel">
+          <h3><span class="bar"></span>Pipeline Health</h3>
+          <table>
+            <thead><tr><th>Pipeline</th><th>Status</th><th>Last Run</th><th style="text-align:right">Success Rate</th></tr></thead>
+            <tbody id="ovPipeBody">
+              <tr><td class="pname">Customer ETL</td><td><span class="badge b-healthy">Healthy</span></td><td class="last">2 min ago</td><td style="text-align:right"><span class="rate r-good">98.9%</span></td></tr>
+              <tr><td class="pname">Sales Pipeline</td><td><span class="badge b-healthy">Healthy</span></td><td class="last">5 min ago</td><td style="text-align:right"><span class="rate r-good">99.7%</span></td></tr>
+              <tr><td class="pname">Inventory Pipeline</td><td><span class="badge b-warning">Warning</span></td><td class="last">8 min ago</td><td style="text-align:right"><span class="rate r-warn">92.5%</span></td></tr>
+              <tr><td class="pname">Analytics Pipeline</td><td><span class="badge b-healthy">Healthy</span></td><td class="last">12 min ago</td><td style="text-align:right"><span class="rate r-good">96.5%</span></td></tr>
+              <tr><td class="pname">Payment Pipeline</td><td><span class="badge b-failed">Failed</span></td><td class="last">18 min ago</td><td style="text-align:right"><span class="rate r-bad">45.2%</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel">
+          <h3><span class="bar" style="background:var(--purple);box-shadow:0 0 8px var(--purple)"></span>AI Agent Activity</h3>
+          <div class="feed" id="ovFeed">
+            <div class="fitem"><div class="fdot fd-cyan"></div><div><div class="ftxt">Schema change detected</div><div class="ftime">11:42 · customers table</div></div></div>
+            <div class="fitem"><div class="fdot fd-purple"></div><div><div class="ftxt">Analysing impact…</div><div class="ftime">11:42 · 3 downstream jobs</div></div></div>
+            <div class="fitem"><div class="fdot fd-blue"></div><div><div class="ftxt">Migration plan generated</div><div class="ftime">11:42 · risk: low</div></div></div>
+            <div class="fitem"><div class="fdot fd-green"></div><div><div class="ftxt">Auto-heal executed</div><div class="ftime">11:41 · v2 → v3</div></div></div>
+            <div class="fitem"><div class="fdot fd-green"></div><div><div class="ftxt">Pipeline restored successfully</div><div class="ftime">11:40 · Customer ETL</div></div></div>
+          </div>
+          <button class="btn-all" onclick="go('logs')">View All Activity</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PIPELINES ============ -->
+    <section class="view" id="view-pipelines">
+      <div class="panel">
+        <h3><span class="bar"></span>All Pipelines</h3>
+        <div style="margin-bottom:14px"><span class="tag">All · 24</span><span class="tag" style="color:var(--green);border-color:rgba(34,224,161,.4)">Healthy · 21</span><span class="tag" style="color:var(--amber);border-color:rgba(245,181,68,.4)">Warning · 1</span><span class="tag" style="color:var(--red);border-color:rgba(255,90,106,.4)">Failed · 2</span></div>
+        <table>
+          <thead><tr><th>Pipeline</th><th>Source</th><th>Status</th><th>Last Run</th><th style="text-align:right">Success</th></tr></thead>
+          <tbody id="pipeBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ SCHEMA MONITOR ============ -->
+    <section class="view" id="view-schema">
+      <div class="grid2" style="margin-bottom:16px">
+        <div class="panel">
+          <h3><span class="bar"></span>Active Schema · customers (v3)</h3>
+          <div class="mini" id="schemaCols"></div>
+        </div>
+        <div class="panel">
+          <h3><span class="bar" style="background:var(--amber);box-shadow:0 0 8px var(--amber)"></span>Detected Drift</h3>
+          <div class="mini">
+            <p style="color:var(--green)">+ added <b>loyalty_points</b> (BIGINT, nullable)</p>
+            <p style="color:var(--green)">+ added <b>phone</b> (TEXT, nullable)</p>
+            <p style="color:var(--amber)">~ type change <b>signup_date</b> TEXT → DATE</p>
+            <p style="color:var(--dim);margin-top:8px">Classified as <b style="color:var(--green)">additive + safe type-change</b> · migration auto-approved</p>
+          </div>
+        </div>
+      </div>
+      <div class="panel"><h3><span class="bar"></span>Schema Version History</h3>
+        <table><thead><tr><th>Version</th><th>Change</th><th>By Agent</th><th style="text-align:right">When</th></tr></thead>
+        <tbody id="schemaHist"></tbody></table>
+      </div>
+    </section>
+
+    <!-- ============ AI AGENTS ============ -->
+    <section class="view" id="view-agents">
+      <div class="grid3" id="agentGrid"></div>
+    </section>
+
+    <!-- ============ SELF-HEALING ============ -->
+    <section class="view" id="view-healing">
+      <div class="stats" style="grid-template-columns:repeat(3,1fr)">
+        <div class="card c-green"><div class="glow"></div><div class="val">39</div><div class="lbl">Auto-Healed</div></div>
+        <div class="card c-cyan"><div class="glow"></div><div class="val">1.8s</div><div class="lbl">Avg Heal Time</div></div>
+        <div class="card c-purple"><div class="glow"></div><div class="val">94%</div><div class="lbl">Auto Success</div></div>
+      </div>
+      <div class="panel"><h3><span class="bar" style="background:var(--green);box-shadow:0 0 8px var(--green)"></span>Recent Healing Events</h3>
+        <div class="feed" id="healFeed"></div>
+      </div>
+    </section>
+
+    <!-- ============ DATA SOURCES ============ -->
+    <section class="view" id="view-sources">
+      <div class="grid3" id="sourceGrid"></div>
+    </section>
+
+    <!-- ============ EXECUTION LOGS ============ -->
+    <section class="view" id="view-logs">
+      <div class="panel"><h3><span class="bar"></span>Execution Logs · live</h3>
+        <div id="logBody" style="max-height:420px;overflow:auto"></div>
+      </div>
+    </section>
+
+    <!-- ============ ANALYTICS ============ -->
+    <section class="view" id="view-analytics">
+      <div class="grid2">
+        <div class="panel"><h3><span class="bar"></span>Migrations / day</h3>
+          <div class="bars">
+            <div class="b" style="height:45%"><span>Mon</span></div><div class="b" style="height:70%"><span>Tue</span></div>
+            <div class="b" style="height:55%"><span>Wed</span></div><div class="b" style="height:90%"><span>Thu</span></div>
+            <div class="b" style="height:65%"><span>Fri</span></div><div class="b" style="height:40%"><span>Sat</span></div>
+            <div class="b" style="height:30%"><span>Sun</span></div>
+          </div>
+        </div>
+        <div class="panel"><h3><span class="bar" style="background:var(--purple);box-shadow:0 0 8px var(--purple)"></span>Drift by type</h3>
+          <div class="bars">
+            <div class="b" style="height:80%;background:linear-gradient(180deg,var(--green),rgba(34,224,161,.2))"><span>Additive</span></div>
+            <div class="b" style="height:35%;background:linear-gradient(180deg,var(--amber),rgba(245,181,68,.2))"><span>Type</span></div>
+            <div class="b" style="height:20%;background:linear-gradient(180deg,var(--purple),rgba(168,85,247,.2))"><span>Rename</span></div>
+            <div class="b" style="height:12%;background:linear-gradient(180deg,var(--red),rgba(255,90,106,.2))"><span>Breaking</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SETTINGS ============ -->
+    <section class="view" id="view-settings">
+      <div class="grid2">
+        <div class="panel"><h3><span class="bar"></span>Agent Behaviour</h3>
+          <div class="toggle"><div><div style="font-weight:600">Auto-approve safe migrations</div><div class="mini">Additive changes apply without review</div></div><div class="sw" onclick="this.classList.toggle('off')"></div></div>
+          <div class="toggle"><div><div style="font-weight:600">Auto-heal on failure</div><div class="mini">Roll back &amp; retry failed pipelines</div></div><div class="sw" onclick="this.classList.toggle('off')"></div></div>
+          <div class="toggle"><div><div style="font-weight:600">Require review for breaking changes</div><div class="mini">Human approval before DROP/rename</div></div><div class="sw" onclick="this.classList.toggle('off')"></div></div>
+        </div>
+        <div class="panel"><h3><span class="bar" style="background:var(--purple);box-shadow:0 0 8px var(--purple)"></span>LLM Planner</h3>
+          <div class="mini" style="line-height:2">
+            <p>Provider: <b style="color:var(--cyan)">Gemini (free tier)</b></p>
+            <p>Model: <b style="color:var(--cyan)">gemini-2.0-flash</b></p>
+            <p>Structured output: <b style="color:var(--green)">enabled</b></p>
+            <p>Dry-run before apply: <b style="color:var(--green)">enabled</b></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  const subs = {
+    overview:"Real-time agentic pipeline & schema monitoring",
+    pipelines:"All monitored data pipelines",
+    schema:"Live schema drift detection & versioning",
+    agents:"Autonomous agents running the platform",
+    healing:"Automatic rollback & recovery events",
+    sources:"Connected databases & feeds",
+    logs:"Execution & migration log stream",
+    analytics:"Trends across drift, migrations & health",
+    settings:"Engine & agent configuration"
+  };
+
+  function go(view){
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    const el = document.getElementById('view-'+view);
+    if(el) el.classList.add('active');
+    document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('active', a.dataset.view===view));
+    document.getElementById('pageTitle').textContent = view.toUpperCase();
+    document.getElementById('pageSub').textContent = subs[view] || '';
+    document.getElementById('side').classList.remove('open');
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+  document.querySelectorAll('#nav a').forEach(a=>a.addEventListener('click',()=>go(a.dataset.view)));
+  document.getElementById('menuBtn').addEventListener('click',()=>document.getElementById('side').classList.toggle('open'));
+
+  // ----- data-driven sections -----
+  const pipelines = [
+    ["Customer ETL","PostgreSQL","Healthy","2 min ago","98.9"],
+    ["Sales Pipeline","Snowflake","Healthy","5 min ago","99.7"],
+    ["Inventory Pipeline","MySQL","Warning","8 min ago","92.5"],
+    ["Analytics Pipeline","BigQuery","Healthy","12 min ago","96.5"],
+    ["Payment Pipeline","Kafka","Failed","18 min ago","45.2"],
+    ["User Events","Kinesis","Healthy","1 min ago","99.9"],
+    ["Marketing Sync","S3","Healthy","4 min ago","97.8"],
+    ["Support Tickets","MongoDB","Healthy","9 min ago","98.1"]
+  ];
+  const badge = s => s==="Healthy"?'b-healthy':s==="Warning"?'b-warning':'b-failed';
+  const rcls  = r => r>=95?'r-good':r>=90?'r-warn':'r-bad';
+  document.getElementById('pipeBody').innerHTML = pipelines.map(p=>
+    `<tr><td class="pname">${p[0]}</td><td class="last">${p[1]}</td>
+     <td><span class="badge ${badge(p[2])}">${p[2]}</span></td>
+     <td class="last">${p[3]}</td>
+     <td style="text-align:right"><span class="rate ${rcls(+p[4])}">${p[4]}%</span></td></tr>`).join('');
+
+  const cols = [["id","BIGINT"],["name","TEXT"],["email","TEXT"],["signup_date","DATE"],["phone","TEXT"],["loyalty_points","BIGINT"]];
+  document.getElementById('schemaCols').innerHTML = cols.map(c=>
+    `<p><b style="color:#dbe6fb">${c[0]}</b> <span style="color:var(--cyan)">${c[1]}</span></p>`).join('');
+
+  const hist = [["v3","+ phone, loyalty_points","Migration Executor","11:42"],["v2","~ signup_date → DATE","Migration Executor","09:15"],["v1","baseline registered","Pipeline Monitor","Mon"]];
+  document.getElementById('schemaHist').innerHTML = hist.map(h=>
+    `<tr><td class="pname">${h[0]}</td><td class="last">${h[1]}</td><td class="last">${h[2]}</td><td style="text-align:right" class="last">${h[3]}</td></tr>`).join('');
+
+  const agents = [
+    ["Pipeline Monitor","Watches batches & extracts schema","cyan","active"],
+    ["Schema Detector","Diffs & classifies drift","purple","active"],
+    ["LLM Planner","Gemini plans safe migrations","blue","active"],
+    ["Migration Executor","Applies with guardrails + dry-run","green","active"],
+    ["Rollback Agent","Reverts failed migrations","pink","idle"],
+    ["Audit Agent","Logs every action","cyan","active"]
+  ];
+  document.getElementById('agentGrid').innerHTML = agents.map(a=>
+    `<div class="panel"><div class="agentcard">
+       <div class="ai"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="8" width="14" height="11" rx="2"/><path d="M12 8V4M9 3h6"/><circle cx="9.5" cy="13" r="1.2"/><circle cx="14.5" cy="13" r="1.2"/></svg></div>
+       <div><div style="font-weight:600">${a[0]}</div>
+       <span class="badge ${a[3]==='active'?'b-healthy':'b-warning'}" style="margin-top:5px">${a[3]}</span></div>
+     </div><div class="mini" style="margin-top:12px">${a[1]}</div></div>`).join('');
+
+  const heals = [
+    ["fd-green","Payment Pipeline rolled back to v2","11:41 · auto"],
+    ["fd-green","Customer ETL restored","11:40 · 1.6s"],
+    ["fd-cyan","Inventory schema patched","10:22 · additive"],
+    ["fd-green","Sales Pipeline retry succeeded","09:58 · attempt 2"],
+    ["fd-purple","Analytics migration re-planned","09:15 · risk lowered"]
+  ];
+  document.getElementById('healFeed').innerHTML = heals.map(h=>
+    `<div class="fitem"><div class="fdot ${h[0]}"></div><div><div class="ftxt">${h[1]}</div><div class="ftime">${h[2]}</div></div></div>`).join('');
+
+  const sources = [
+    ["PostgreSQL","prod-customers","cyan","connected"],["Snowflake","analytics-wh","blue","connected"],
+    ["MySQL","inventory-db","green","connected"],["Kafka","payment-stream","pink","reconnecting"],
+    ["BigQuery","events-ds","purple","connected"],["MongoDB","support-cluster","cyan","connected"]
+  ];
+  document.getElementById('sourceGrid').innerHTML = sources.map(s=>
+    `<div class="panel"><div class="agentcard">
+       <div class="ai" style="background:rgba(34,211,238,.12)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.6 3.1 3 7 3s7-1.4 7-3V6"/></svg></div>
+       <div><div style="font-weight:600">${s[0]}</div><div class="mini">${s[1]}</div></div></div>
+       <span class="badge ${s[3]==='connected'?'b-healthy':'b-warning'}" style="margin-top:12px">${s[3]}</span></div>`).join('');
+
+  const logs = [
+    ["11:42:07","info","Schema change detected on customers"],
+    ["11:42:07","info","Impact analysis: 3 downstream jobs"],
+    ["11:42:08","ok","Migration plan generated (risk=low)"],
+    ["11:42:08","info","Dry-run in transaction… passed"],
+    ["11:42:09","ok","Applied ALTER TABLE customers ADD phone, loyalty_points"],
+    ["11:42:09","ok","Schema version bumped v2 → v3"],
+    ["11:41:55","warn","Payment Pipeline success rate below threshold"],
+    ["11:41:56","err","Payment Pipeline job failed (exit 1)"],
+    ["11:41:57","ok","Rollback to v2 executed"],
+    ["11:40:12","ok","Customer ETL restored successfully"]
+  ];
+  const lg = {ok:'lg-ok',warn:'lg-warn',err:'lg-err',info:'lg-info'};
+  document.getElementById('logBody').innerHTML = logs.map(l=>
+    `<div class="logline"><span class="t">${l[0]}</span><span class="${lg[l[1]]}">[${l[1].toUpperCase()}]</span><span>${l[2]}</span></div>`).join('');
+
+  // ================= LIVE BACKEND WIRING (Phase 4) =================
+  // Same-origin when served by the Spring app on :8080; otherwise try localhost:8080.
+  const API_BASE = (location.protocol.startsWith('http') && location.port === '8080') ? '' : 'http://localhost:8080';
+
+  const $ = id => document.getElementById(id);
+  const escapeHtml = v => String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const setText = (id, v) => { const e = $(id); if (e) e.textContent = v; };
+  const setHTML = (id, v) => { const e = $(id); if (e) e.innerHTML = v; };
+  const badgeCls = s => s === 'Healthy' ? 'b-healthy' : s === 'Warning' ? 'b-warning' : 'b-failed';
+  const rateCls  = r => r >= 95 ? 'r-good' : r >= 90 ? 'r-warn' : 'r-bad';
+  const dotColor = l => l === 'ok' ? 'var(--green)' : l === 'err' ? 'var(--red)' : l === 'warn' ? 'var(--amber)' : 'var(--cyan)';
+  const lgCls    = l => l === 'ok' ? 'lg-ok' : l === 'err' ? 'lg-err' : l === 'warn' ? 'lg-warn' : 'lg-info';
+
+  function fmtTime(iso){
+    if(!iso) return '—';
+    const t = new Date(iso).getTime();
+    if(isNaN(t)) return '—';
+    const s = Math.max(0, Math.floor((Date.now()-t)/1000));
+    if(s < 60) return 'just now';
+    if(s < 3600) return Math.floor(s/60)+' min ago';
+    if(s < 86400) return Math.floor(s/3600)+' hr ago';
+    return new Date(iso).toLocaleDateString();
+  }
+
+  function setStatus(live){
+    setText('statusText', live ? 'Engine online · live' : 'Demo data (backend offline)');
+    const dot = $('statusDot');
+    if(dot){ dot.style.background = live ? 'var(--green)' : 'var(--amber)'; dot.style.boxShadow = '0 0 8px '+(live?'var(--green)':'var(--amber)'); }
+  }
+
+  function applyLive(d){
+    const s = d.stats || {};
+    setText('st-datasets', s.totalDatasets ?? 0);
+    setText('st-health', (Number(d.systemHealth)||0).toFixed(1)+'%');
+    setText('st-changes', s.schemaChanges ?? 0);
+    setText('st-decisions', s.aiDecisions ?? 0);
+    setText('st-healed', s.autoHealed ?? 0);
+    setText('st-failed', s.failedJobs ?? 0);
+    setText('st-sources', s.activeSchemas ?? 0);
+
+    const ds = d.datasets || [];
+    if(ds.length){
+      setHTML('ovPipeBody', ds.map(p=>
+        `<tr><td class="pname">${escapeHtml(p.name)}</td>
+         <td><span class="badge ${badgeCls(p.status)}">${p.status}</span></td>
+         <td class="last">${fmtTime(p.lastChange)}</td>
+         <td style="text-align:right"><span class="rate ${rateCls(p.successRate)}">${(Number(p.successRate)||0).toFixed(1)}%</span></td></tr>`).join(''));
+      setHTML('pipeBody', ds.map(p=>
+        `<tr><td class="pname">${escapeHtml(p.name)}</td>
+         <td class="last">v${p.activeVersion ?? '-'}</td>
+         <td><span class="badge ${badgeCls(p.status)}">${p.status}</span></td>
+         <td class="last">${fmtTime(p.lastChange)}</td>
+         <td style="text-align:right"><span class="rate ${rateCls(p.successRate)}">${(Number(p.successRate)||0).toFixed(1)}%</span></td></tr>`).join(''));
+    } else {
+      const empty = '<tr><td colspan="4" class="last" style="padding:18px 0">No datasets yet — register one and ingest a CSV.</td></tr>';
+      setHTML('ovPipeBody', empty);
+      setHTML('pipeBody', '<tr><td colspan="5" class="last" style="padding:18px 0">No datasets yet.</td></tr>');
+    }
+
+    const act = d.activity || [];
+    if(act.length){
+      setHTML('ovFeed', act.slice(0,6).map(a=>
+        `<div class="fitem"><div class="fdot" style="background:${dotColor(a.level)};box-shadow:0 0 9px ${dotColor(a.level)}"></div>
+          <div><div class="ftxt">${escapeHtml(a.message)}</div><div class="ftime">${fmtTime(a.ts)}</div></div></div>`).join(''));
+      setHTML('logBody', act.map(a=>{
+        const d2 = new Date(a.ts);
+        const t = isNaN(d2) ? '' : d2.toLocaleTimeString();
+        return `<div class="logline"><span class="t">${t}</span><span class="${lgCls(a.level)}">[${escapeHtml(a.level).toUpperCase()}]</span><span>${escapeHtml(a.message)}</span></div>`;
+      }).join(''));
+    } else {
+      setHTML('ovFeed', '<div class="mini">No agent activity yet.</div>');
+    }
+  }
+
+  async function refresh(){
+    try{
+      const res = await fetch(API_BASE + '/api/dashboard/summary', {cache:'no-store'});
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      applyLive(await res.json());
+      setStatus(true);
+    }catch(e){
+      setStatus(false);   // keep the demo/mock content already in the DOM
+    }
+  }
+  refresh();
+  setInterval(refresh, 20000);
+
+</script>
+</body>
+</html>

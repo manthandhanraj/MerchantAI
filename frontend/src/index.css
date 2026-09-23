@@ -1,11 +1,113 @@
 @import "tailwindcss";
 
-/* Tailwind v4 keeps theme tokens in CSS rather than a JS config file. */
+/*
+ * Business Pulse theme.
+ *
+ * Tailwind v4 keeps theme tokens in CSS rather than a JS config file, so these
+ * become real utilities: `bg-surface`, `text-sage`, `border-line` and so on.
+ * Components use the tokens directly — there is no override layer re-colouring
+ * light utilities, which would break the moment a component changed a class.
+ */
 @theme {
-  --color-brand: #0f766e;
+  --color-ink: #0a0d0c;        /* page background */
+  --color-surface: #101412;    /* standard card */
+  --color-raised: #151c18;     /* card that should sit above its neighbours */
+  --color-forest: #16241d;     /* hero gradient, deep end */
+  --color-forest-lit: #1d3328; /* hero gradient, lit end */
+  --color-cocoa: #14120f;      /* the AI card's warm dark base */
+  --color-sage: #b8e49d;       /* growth, positive movement, primary action */
+  --color-gold: #e5bd75;       /* AI and high-value accents */
+  --color-cream: #f4f3ed;      /* primary text */
+  --color-muted: #9baaa0;      /* secondary text */
+  --color-faint: #7d8c83;   /* tertiary text and axis labels; 4.9:1 on the lightest surface */
+  --color-alert: #f0a58f;      /* problems, on dark */
+
+  --color-brand: #0f766e;      /* retained: pre-existing token */
+}
+
+/*
+ * Keyboard focus.
+ *
+ * Declared once, globally, rather than per component: a utility that a single
+ * element forgets is an element a keyboard user cannot see. Buttons on the warm
+ * AI card opt into the gold variant so the ring does not clash with it.
+ */
+:focus-visible {
+  outline: 2px solid var(--color-sage);
+  outline-offset: 2px;
+}
+
+.focus-gold:focus-visible {
+  outline-color: var(--color-gold);
 }
 
 /* Keep numeric columns in KPI cards and tooltips from shifting as values change. */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+body {
+  background-color: var(--color-ink);
+  color: var(--color-cream);
+}
+
+/*
+ * Entrance motion.
+ *
+ * Every animation below runs once and settles. Nothing loops: a dashboard a
+ * merchant reads every morning should be still once it has arrived.
+ */
+@keyframes pulse-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes pulse-grow {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+
+@keyframes pulse-sparkle {
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 1; }
+}
+
+.pulse-rise {
+  animation: pulse-rise 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.pulse-bar {
+  transform-origin: bottom;
+  animation: pulse-grow 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* The only repeating motion in the UI: a slow opacity breath on a 6px glyph. */
+.pulse-sparkle {
+  animation: pulse-sparkle 3.2s ease-in-out infinite;
+}
+
+/* A card lifts slightly under the pointer; the shadow does most of the work. */
+.pulse-lift {
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+}
+
+.pulse-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 40px rgb(0 0 0 / 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-rise,
+  .pulse-bar,
+  .pulse-sparkle {
+    animation: none;
+  }
+
+  .pulse-lift {
+    transition: none;
+  }
+
+  .pulse-lift:hover {
+    transform: none;
+  }
 }

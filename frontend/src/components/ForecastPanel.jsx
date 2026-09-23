@@ -11,16 +11,18 @@
 import { TrendChart } from './TrendChart'
 import { formatCurrency, formatCurrencyCompact, formatDate, formatPercent } from '../utils/format'
 
-const ACTUAL_COLOR = '#0f766e'
-const FORECAST_COLOR = '#7c3aed'
+// Sage for what happened, champagne for what is only projected — the same
+// meaning the two colours carry everywhere else in the theme.
+const ACTUAL_COLOR = '#b8e49d'
+const FORECAST_COLOR = '#e5bd75'
 
 // How much history to show behind the projection.
 const CONTEXT_DAYS = 21
 
 const TREND_LABEL = {
-  rising: { text: 'Rising', className: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
-  falling: { text: 'Falling', className: 'bg-red-50 text-red-700 ring-red-200' },
-  flat: { text: 'Flat', className: 'bg-slate-100 text-slate-600 ring-slate-200' },
+  rising: { text: 'Rising', className: 'bg-sage/12 text-sage ring-sage/30' },
+  falling: { text: 'Falling', className: 'bg-alert/12 text-alert ring-alert/30' },
+  flat: { text: 'Flat', className: 'bg-white/8 text-muted ring-white/12' },
 }
 
 function buildSeries(daily, forecast) {
@@ -49,11 +51,11 @@ export function ForecastPanel({ daily, forecast }) {
 
   if (!forecast.available) {
     return (
-      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <section className="pulse-lift rounded-2xl border border-white/8 bg-gradient-to-b from-raised to-surface p-4 shadow-[0_12px_30px_rgb(0_0_0/0.25)] sm:p-5">
         <header className="mb-3">
-          <h3 className="text-sm font-semibold text-slate-900">Revenue forecast</h3>
+          <h3 className="text-sm font-semibold text-cream">Revenue forecast</h3>
         </header>
-        <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
+        <p className="rounded-xl bg-white/4 p-4 text-sm text-muted">
           {forecast.reason ?? 'A forecast is not available for this period.'}
         </p>
       </section>
@@ -69,12 +71,12 @@ export function ForecastPanel({ daily, forecast }) {
   const method = forecast.method ?? 'projection'
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <section className="pulse-lift rounded-2xl border border-white/8 bg-gradient-to-b from-raised to-surface p-4 shadow-[0_12px_30px_rgb(0_0_0/0.25)] sm:p-5">
       <header className="mb-4 flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h3 className="text-sm font-semibold text-slate-900">Revenue forecast</h3>
+          <h3 className="text-sm font-semibold text-cream">Revenue forecast</h3>
           {period && (
-            <p className="mt-0.5 text-xs text-slate-500">
+            <p className="mt-0.5 text-xs text-faint">
               Next {period.days} days · {formatDate(period.start)} to{' '}
               {formatDate(period.end, { withYear: true })}
             </p>
@@ -88,21 +90,21 @@ export function ForecastPanel({ daily, forecast }) {
       </header>
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <div className="rounded-lg bg-slate-50 p-3">
-          <p className="text-xs text-slate-500">Projected total</p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-slate-900">
+        <div className="rounded-xl bg-white/4 p-3">
+          <p className="text-xs text-faint">Projected total</p>
+          <p className="mt-0.5 text-lg font-semibold tabular-nums text-cream">
             {formatCurrency(forecast.forecast_total)}
           </p>
         </div>
-        <div className="rounded-lg bg-slate-50 p-3">
-          <p className="text-xs text-slate-500">Recent daily average</p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-slate-900">
+        <div className="rounded-xl bg-white/4 p-3">
+          <p className="text-xs text-faint">Recent daily average</p>
+          <p className="mt-0.5 text-lg font-semibold tabular-nums text-cream">
             {formatCurrency(forecast.history_daily_mean)}
           </p>
         </div>
-        <div className="col-span-2 rounded-lg bg-slate-50 p-3 sm:col-span-1">
-          <p className="text-xs text-slate-500">Typical error (measured)</p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-slate-900">
+        <div className="col-span-2 rounded-xl bg-white/4 p-3 sm:col-span-1">
+          <p className="text-xs text-faint">Typical error (measured)</p>
+          <p className="mt-0.5 text-lg font-semibold tabular-nums text-cream">
             {backtestError == null ? 'Not measured' : formatPercent(backtestError)}
           </p>
         </div>
@@ -122,9 +124,9 @@ export function ForecastPanel({ daily, forecast }) {
       />
 
       {limitations.length > 0 && (
-        <ul className="mt-4 space-y-1 border-t border-slate-100 pt-3">
+        <ul className="mt-4 space-y-1 border-t border-white/8 pt-3">
           {limitations.map((note) => (
-            <li key={note} className="text-xs text-slate-500">
+            <li key={note} className="text-xs text-faint">
               {note}
             </li>
           ))}
@@ -136,15 +138,15 @@ export function ForecastPanel({ daily, forecast }) {
 
 export function ForecastSkeleton() {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
-      <div className="mt-1 h-3 w-48 animate-pulse rounded bg-slate-100" />
+    <div className="pulse-lift rounded-2xl border border-white/8 bg-gradient-to-b from-raised to-surface p-4 shadow-[0_12px_30px_rgb(0_0_0/0.25)] sm:p-5">
+      <div className="h-4 w-32 animate-pulse rounded bg-white/8" />
+      <div className="mt-1 h-3 w-48 animate-pulse rounded bg-white/5" />
       <div className="mt-4 grid grid-cols-3 gap-3">
         {[0, 1, 2].map((index) => (
-          <div key={index} className="h-16 animate-pulse rounded-lg bg-slate-100" />
+          <div key={index} className="h-16 animate-pulse rounded-lg bg-white/5" />
         ))}
       </div>
-      <div className="mt-4 h-[260px] animate-pulse rounded-lg bg-slate-100" />
+      <div className="mt-4 h-[260px] animate-pulse rounded-lg bg-white/5" />
     </div>
   )
 }

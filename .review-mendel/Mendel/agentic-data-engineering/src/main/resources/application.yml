@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: agentic-data-engineering
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:ade}
+    username: ${POSTGRES_USER:ade}
+    password: ${POSTGRES_PASSWORD:ade}
+  jpa:
+    hibernate:
+      ddl-auto: none
+    defer-datasource-initialization: true
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 25MB
+
+server:
+  port: ${SERVER_PORT:8080}
+
+app:
+  api-key: ${ADE_API_KEY:}
+  cors:
+    allowed-origins: ${ADE_ALLOWED_ORIGINS:http://localhost:8080}
+
+# LLM config — used from Phase 2 (Gemini planner). Free-tier key goes in .env
+llm:
+  provider: gemini
+  gemini:
+    api-key: ${GEMINI_API_KEY:}
+    model: gemini-2.0-flash
+    base-url: https://generativelanguage.googleapis.com/v1beta

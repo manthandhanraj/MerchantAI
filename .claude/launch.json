@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "merchantai",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["runner.py"],
+      "port": 5173
+    }
+  ]
+}

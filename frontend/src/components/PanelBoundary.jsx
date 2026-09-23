@@ -27,12 +27,12 @@ export class PanelBoundary extends Component {
       return (
         <section
           role="alert"
-          className="rounded-xl border border-red-200 bg-red-50 p-4 shadow-sm sm:p-5"
+          className="rounded-xl border border-alert/25 bg-alert/8 p-4 shadow-sm sm:p-5"
         >
-          <h3 className="text-sm font-semibold text-red-700">
+          <h3 className="text-sm font-semibold text-alert">
             {this.props.name} could not be displayed
           </h3>
-          <p className="mt-1 text-sm text-red-700">
+          <p className="mt-1 text-sm text-alert">
             The rest of the dashboard is unaffected. {this.state.error.message}
           </p>
         </section>

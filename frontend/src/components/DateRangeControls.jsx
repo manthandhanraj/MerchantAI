@@ -24,13 +24,13 @@ export function DateRangeControls({
   disabled,
 }) {
   const inputClass =
-    'rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-teal-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600/30 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400'
+    'rounded-lg border border-white/12 bg-white/5 px-3 py-2 text-sm text-cream shadow-sm transition focus:border-sage/70 disabled:cursor-not-allowed disabled:bg-white/4 disabled:text-faint'
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-4">
       <div className="flex flex-col gap-1">
-        <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Period</span>
-        <div className="inline-flex rounded-lg border border-slate-300 bg-white p-0.5 shadow-sm">
+        <span className="text-xs font-medium uppercase tracking-wide text-faint">Period</span>
+        <div className="inline-flex rounded-lg border border-white/12 bg-white/5 p-0.5 shadow-sm">
           {PRESETS.map((preset) => {
             const isActive = activePreset === preset.id
             return (
@@ -41,10 +41,10 @@ export function DateRangeControls({
                 aria-pressed={isActive}
                 onClick={() => onPresetChange(preset)}
                 className={[
-                  'rounded-md px-3 py-1.5 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600',
+                  'rounded-md px-3 py-1.5 text-sm font-medium transition',
                   isActive
-                    ? 'bg-teal-700 text-white shadow-sm'
-                    : 'text-slate-600 hover:bg-slate-100',
+                    ? 'bg-sage text-[#11251a] shadow-sm'
+                    : 'text-muted hover:bg-white/10',
                   disabled ? 'cursor-not-allowed opacity-50' : '',
                 ].join(' ')}
               >
@@ -56,7 +56,7 @@ export function DateRangeControls({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label htmlFor="start-date" className="text-xs font-medium uppercase tracking-wide text-slate-500">
+        <label htmlFor="start-date" className="text-xs font-medium uppercase tracking-wide text-faint">
           From
         </label>
         <input
@@ -72,7 +72,7 @@ export function DateRangeControls({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label htmlFor="end-date" className="text-xs font-medium uppercase tracking-wide text-slate-500">
+        <label htmlFor="end-date" className="text-xs font-medium uppercase tracking-wide text-faint">
           To
         </label>
         <input

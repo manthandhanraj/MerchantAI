@@ -5,17 +5,23 @@
  * GET /api/dashboard — nothing is computed in the browser, so the dashboard and
  * the API can never disagree.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { ActionPlanPanel, ActionPlanSkeleton } from '../components/ActionPlanPanel'
+import { AiCoachCard } from '../components/AiCoachCard'
 import { AssistantPanel } from '../components/AssistantPanel'
+import { CustomerRhythm } from '../components/CustomerRhythm'
 import { DateRangeControls, PRESETS } from '../components/DateRangeControls'
 import { ForecastPanel, ForecastSkeleton } from '../components/ForecastPanel'
+import { GreetingHeader } from '../components/GreetingHeader'
 import { InsightsPanel, InsightsSkeleton } from '../components/InsightsPanel'
-import { KpiCard, KpiCardSkeleton } from '../components/KpiCard'
 import { MerchantSelector } from '../components/MerchantSelector'
 import { PanelBoundary } from '../components/PanelBoundary'
+import { PowerMoves } from '../components/PowerMoves'
+import { PulseKpi, PulseKpiSkeleton } from '../components/PulseKpi'
+import { RevenueHero } from '../components/RevenueHero'
 import { ChartSkeleton, StatusPanel } from '../components/StatusPanel'
+import { TopNav } from '../components/TopNav'
 import { TrendChart } from '../components/TrendChart'
 import {
   askAssistant,
@@ -43,13 +49,19 @@ const DEFAULT_PRESET = '30'
 // Below 14 days that window shrinks, so the label would be wrong — hide it.
 const MIN_DAYS_FOR_GROWTH = 14
 
+// Chart colours for the dark theme. Sage carries revenue everywhere, so the
+// trend chart and the hero card cannot appear to describe different things.
 const COLORS = {
-  revenue: '#0f766e',
-  profit: '#f59e0b',
-  orders: '#4f46e5',
-  newCustomers: '#93c5fd',
-  repeatCustomers: '#1d4ed8',
+  revenue: '#b8e49d',
+  profit: '#e5bd75',
+  orders: '#7fc8d8',
+  newCustomers: '#8fb9a3',
+  repeatCustomers: '#b8e49d',
 }
+
+// How many action-plan items the "power moves" panel shows before the reader
+// drops into the full plan.
+const POWER_MOVE_COUNT = 3
 
 /** Derive a start/end range from a merchant's own data bounds. */
 function rangeForPreset(merchant, presetId) {
@@ -310,24 +322,53 @@ export default function DashboardPage() {
   const hasData = Boolean(dashboard?.has_data)
   const isBusy = merchantsLoading || dashboardLoading
 
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h1 className="text-xl font-semibold tracking-tight">MerchantAI</h1>
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-              Demo data
-            </span>
-          </div>
-          <p className="mt-1 text-sm text-slate-500">Merchant performance dashboard</p>
-        </div>
-      </header>
+  // The growth figure compares the most recent 7 days with the 7 before them,
+  // so it is only shown once the period is long enough to contain both.
+  const growth =
+    summary && summary.days >= MIN_DAYS_FOR_GROWTH ? summary.revenue_growth_rate : null
 
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        {/* Controls */}
-        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+  // The plan arrives already ranked; the coach takes the top item and the power
+  // moves take the next few, so neither re-orders anything.
+  const rankedActions = useMemo(
+    () => [
+      ...(actionPlan?.high ?? []),
+      ...(actionPlan?.medium ?? []),
+      ...(actionPlan?.low ?? []),
+    ],
+    [actionPlan],
+  )
+
+  const planRef = useRef(null)
+
+  const openPlan = useCallback(() => {
+    const node = planRef.current
+    // jsdom and a few older browsers have no scrollIntoView; the button should
+    // stay harmless there rather than throwing inside an event handler.
+    if (typeof node?.scrollIntoView !== 'function') return
+
+    node.scrollIntoView({
+      behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+        ? 'auto'
+        : 'smooth',
+      block: 'start',
+    })
+  }, [])
+
+  return (
+    <div className="min-h-screen bg-ink text-cream">
+      <TopNav merchantId={merchantId} live={!merchantsError && !merchantsLoading} />
+
+      <main
+        id="business-pulse"
+        className="mx-auto max-w-7xl scroll-mt-28 px-4 py-8 sm:px-6 lg:px-8"
+      >
+        {/* Greeting, with the controls that scope everything below it. */}
+        <GreetingHeader
+          merchantId={merchantId}
+          periodEnd={summary?.period_end}
+          growth={growth}
+        >
+          <div className="flex flex-col gap-4 rounded-2xl border border-white/8 bg-gradient-to-b from-raised to-surface p-4 shadow-[0_12px_30px_rgb(0_0_0/0.25)] sm:p-5">
             <MerchantSelector
               merchants={merchants}
               value={merchantId}
@@ -345,23 +386,17 @@ export default function DashboardPage() {
               onEndChange={handleEndChange}
               disabled={!selectedMerchant}
             />
+            {dashboardLoading && (
+              <p className="text-xs text-faint" role="status">
+                updating…
+              </p>
+            )}
           </div>
-
-          {summary?.period_start && (
-            <p className="mt-4 border-t border-slate-100 pt-3 text-sm text-slate-600">
-              Showing{' '}
-              <span className="font-medium text-slate-900">
-                {formatDateRange(summary.period_start, summary.period_end)}
-              </span>{' '}
-              · {formatNumber(summary.days)} days
-              {dashboardLoading && <span className="ml-2 text-slate-400">updating…</span>}
-            </p>
-          )}
-        </section>
+        </GreetingHeader>
 
         {/* Merchant list failure blocks everything below it. */}
         {merchantsError && (
-          <div className="mt-6">
+          <div className="mt-8">
             <StatusPanel
               tone="error"
               title="Could not load merchants"
@@ -373,7 +408,7 @@ export default function DashboardPage() {
         )}
 
         {!merchantsError && dashboardError && (
-          <div className="mt-6">
+          <div className="mt-8">
             <StatusPanel
               tone="error"
               title="Could not load dashboard data"
@@ -386,19 +421,20 @@ export default function DashboardPage() {
 
         {!merchantsError && !dashboardError && isBusy && !summary && (
           <>
-            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-              {Array.from({ length: 5 }, (_, index) => (
-                <KpiCardSkeleton key={index} />
-              ))}
+            <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-[1.85fr_1fr]">
+              <ChartSkeleton height={220} />
+              <ChartSkeleton height={220} />
             </div>
-            <div className="mt-6 grid grid-cols-1 gap-4">
-              <ChartSkeleton height={280} />
+            <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
+              {Array.from({ length: 3 }, (_, index) => (
+                <PulseKpiSkeleton key={index} />
+              ))}
             </div>
           </>
         )}
 
         {!merchantsError && !dashboardError && summary && !hasData && (
-          <div className="mt-6">
+          <div className="mt-8">
             <StatusPanel
               tone="empty"
               title="No activity in this period"
@@ -414,44 +450,72 @@ export default function DashboardPage() {
 
         {!merchantsError && !dashboardError && summary && hasData && (
           <>
-            {/* 1. Business overview */}
-            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-              <KpiCard
-                label="Revenue"
-                value={formatCurrency(summary.total_revenue)}
-                delta={summary.days >= MIN_DAYS_FOR_GROWTH ? summary.revenue_growth_rate : null}
-                deltaLabel="vs previous 7 days"
+            {/* 1. The headline: this period's revenue, and the single best move. */}
+            <div className="mt-8 grid grid-cols-1 items-stretch gap-5 lg:grid-cols-[1.85fr_1fr]">
+              <RevenueHero
+                summary={summary}
+                daily={daily}
+                growth={growth}
+                growthLabel="vs previous 7 days"
               />
-              <KpiCard
+              <PanelBoundary name="Growth coach">
+                <AiCoachCard
+                  item={rankedActions[0] ?? null}
+                  loading={actionPlanLoading && !actionPlan}
+                  error={actionPlanError}
+                  onOpenPlan={openPlan}
+                />
+              </PanelBoundary>
+            </div>
+
+            {/* 2. The three supporting numbers. */}
+            <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
+              <PulseKpi
                 label="Orders"
                 value={formatNumber(summary.total_orders)}
                 hint={`${formatNumber(summary.total_units_sold)} units sold`}
+                accent
+                delay={0}
               />
-              <KpiCard
-                label="Customer Visits"
-                value={formatNumber(summary.total_customers)}
-                hint={`${formatPercent(summary.repeat_customer_rate)} repeat`}
+              <PulseKpi
+                label="Returning customers"
+                value={formatPercent(summary.repeat_customer_rate)}
+                hint={`${formatNumber(summary.repeat_customers)} of ${formatNumber(
+                  summary.total_customers,
+                )} visits`}
+                delay={70}
               />
-              <KpiCard
-                label="Gross Profit"
-                value={formatCurrency(summary.total_profit)}
-                hint={`${formatPercent(summary.profit_margin)} margin`}
-              />
-              <KpiCard
-                label="Avg Order Value"
+              <PulseKpi
+                label="Average order"
                 value={formatCurrency(summary.average_order_value)}
                 hint={`${formatCurrency(summary.revenue_per_customer)} per visit`}
+                delay={140}
               />
             </div>
 
-            <p className="mt-3 text-xs text-slate-500">
+            {/* 3. Weekly shape, and what to do about it. */}
+            <div className="mt-5 grid grid-cols-1 items-stretch gap-5 lg:grid-cols-[1.85fr_1fr]">
+              <PanelBoundary name="Customer rhythm">
+                <CustomerRhythm daily={daily} />
+              </PanelBoundary>
+              <PanelBoundary name="Power moves">
+                <PowerMoves
+                  items={rankedActions.slice(0, POWER_MOVE_COUNT)}
+                  loading={actionPlanLoading && !actionPlan}
+                  error={actionPlanError}
+                  onOpenPlan={openPlan}
+                />
+              </PanelBoundary>
+            </div>
+
+            <p className="mt-4 text-xs leading-relaxed text-faint">
               Gross profit is revenue minus cost of goods sold; overheads are not modelled.
               Customer visits sum each day&apos;s distinct customers, so a shopper active on
               several days counts once per day.
             </p>
 
-            {/* 2. Performance trends */}
-            <div className="mt-6 grid grid-cols-1 gap-4">
+            {/* 4. Performance trends */}
+            <div className="mt-8 grid grid-cols-1 gap-5">
               <TrendChart
                 title="Revenue and gross profit"
                 subtitle="Daily totals across the selected period"
@@ -466,7 +530,7 @@ export default function DashboardPage() {
               />
             </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
               <TrendChart
                 title="Orders"
                 subtitle="Orders placed per day"
@@ -500,79 +564,87 @@ export default function DashboardPage() {
               />
             </div>
 
-            {/* 3. AI insights - what changed and why it was flagged */}
-            <div className="mt-4">
-              {insightsLoading && !insights && <InsightsSkeleton />}
-              {insightsError && (
-                <StatusPanel
-                  tone="error"
-                  title="Could not load insights"
-                  message={insightsError}
-                  actionLabel="Try again"
-                  onAction={retry}
-                />
-              )}
-              {!insightsError && insights?.has_data && (
-                <PanelBoundary name="Insights">
-                  <InsightsPanel insights={insights} />
-                </PanelBoundary>
-              )}
-            </div>
+            {/* 5. Growth lab: what changed, what to do, what comes next. */}
+            <section id="growth-lab" className="mt-8 scroll-mt-28">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-gold">
+                Growth lab
+              </h2>
 
-            {/* 4. Growth recommendations, prioritised */}
-            <div className="mt-4">
-              {actionPlanLoading && !actionPlan && <ActionPlanSkeleton />}
-              {actionPlanError && (
-                <StatusPanel
-                  tone="error"
-                  title="Could not load the action plan"
-                  message={actionPlanError}
-                  actionLabel="Try again"
-                  onAction={retry}
-                />
-              )}
-              {!actionPlanError && actionPlan?.has_data && (
-                <PanelBoundary name="Action plan">
-                  <ActionPlanPanel plan={actionPlan} />
-                </PanelBoundary>
-              )}
-            </div>
+              <div className="mt-4">
+                {insightsLoading && !insights && <InsightsSkeleton />}
+                {insightsError && (
+                  <StatusPanel
+                    tone="error"
+                    title="Could not load insights"
+                    message={insightsError}
+                    actionLabel="Try again"
+                    onAction={retry}
+                  />
+                )}
+                {!insightsError && insights?.has_data && (
+                  <PanelBoundary name="Insights">
+                    <InsightsPanel insights={insights} />
+                  </PanelBoundary>
+                )}
+              </div>
 
-            {/* 5. Short-term forecast */}
-            <div className="mt-4">
-              {forecastLoading && !forecast && <ForecastSkeleton />}
-              {forecastError && (
-                <StatusPanel
-                  tone="error"
-                  title="Could not load the forecast"
-                  message={forecastError}
-                  actionLabel="Try again"
-                  onAction={retry}
-                />
-              )}
-              {!forecastError && forecast && (
-                <PanelBoundary name="Forecast">
-                  <ForecastPanel daily={daily} forecast={forecast} />
-                </PanelBoundary>
-              )}
-            </div>
+              <div className="mt-5 scroll-mt-28" ref={planRef}>
+                {actionPlanLoading && !actionPlan && <ActionPlanSkeleton />}
+                {actionPlanError && (
+                  <StatusPanel
+                    tone="error"
+                    title="Could not load the action plan"
+                    message={actionPlanError}
+                    actionLabel="Try again"
+                    onAction={retry}
+                  />
+                )}
+                {!actionPlanError && actionPlan?.has_data && (
+                  <PanelBoundary name="Action plan">
+                    <ActionPlanPanel plan={actionPlan} />
+                  </PanelBoundary>
+                )}
+              </div>
 
-            {/* 6. Ask follow-up questions, grounded in everything above */}
-            <div className="mt-4">
-              <PanelBoundary name="Assistant">
-                <AssistantPanel
-                  status={assistantStatus}
-                  answer={assistantAnswer}
-                  loading={assistantLoading}
-                  error={assistantError}
-                  onAsk={handleAsk}
-                  onRetry={() => setAssistantError(null)}
-                  disabled={!merchantId}
-                />
-              </PanelBoundary>
-            </div>
+              <div className="mt-5">
+                {forecastLoading && !forecast && <ForecastSkeleton />}
+                {forecastError && (
+                  <StatusPanel
+                    tone="error"
+                    title="Could not load the forecast"
+                    message={forecastError}
+                    actionLabel="Try again"
+                    onAction={retry}
+                  />
+                )}
+                {!forecastError && forecast && (
+                  <PanelBoundary name="Forecast">
+                    <ForecastPanel daily={daily} forecast={forecast} />
+                  </PanelBoundary>
+                )}
+              </div>
+
+              <div className="mt-5">
+                <PanelBoundary name="Assistant">
+                  <AssistantPanel
+                    status={assistantStatus}
+                    answer={assistantAnswer}
+                    loading={assistantLoading}
+                    error={assistantError}
+                    onAsk={handleAsk}
+                    onRetry={() => setAssistantError(null)}
+                    disabled={!merchantId}
+                  />
+                </PanelBoundary>
+              </div>
+            </section>
           </>
         )}
+
+        <p className="mt-10 border-t border-white/8 pt-5 text-xs text-faint">
+          All figures come from this merchant&apos;s own synthetic demo dataset. MerchantAI
+          does not use, and does not claim access to, private Paytm data or APIs.
+        </p>
       </main>
     </div>
   )

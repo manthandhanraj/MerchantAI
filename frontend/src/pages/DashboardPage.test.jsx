@@ -354,14 +354,19 @@ describe('KPI cards', () => {
   it('render rates as percentages, not raw fractions', async () => {
     render(<DashboardPage />)
 
-    expect(await screen.findByText('58.0% repeat')).toBeInTheDocument()
+    // The repeat rate is now a headline value; the margin sits beside gross
+    // profit in the revenue card.
+    expect(await screen.findByText('58.0%')).toBeInTheDocument()
     expect(screen.getByText('30.1% margin')).toBeInTheDocument()
   })
 
   it('show the revenue change with an explicit comparison label', async () => {
     render(<DashboardPage />)
 
-    expect(await screen.findByText('▼ -14.9%')).toBeInTheDocument()
+    // The badge is one element: direction glyph, signed value, and the label
+    // that says what the comparison is against.
+    const badge = await screen.findByText('-14.9%')
+    expect(badge.closest('span')).toHaveTextContent('↓')
     expect(screen.getByText('vs previous 7 days')).toBeInTheDocument()
   })
 
@@ -429,14 +434,11 @@ describe('date range', () => {
 
   it('shows the period actually returned by the API', async () => {
     render(<DashboardPage />)
-    // Scoped to the "Showing …" line: "30 days" also appears inside action
-    // reasons such as "versus the previous 30 days".
-    const summaryLine = await screen.findByText(
-      (_content, element) =>
-        element?.tagName.toLowerCase() === 'p' &&
-        element.textContent.trim().startsWith('Showing'),
-    )
-    expect(summaryLine).toHaveTextContent('30 days')
+    // Scoped to the revenue card: "30 days" also appears inside action reasons
+    // such as "versus the previous 30 days".
+    const heading = await screen.findByRole('heading', { name: /This period's revenue/i })
+    const hero = within(heading.closest('section'))
+    expect(hero.getByText(/30 days/)).toHaveTextContent('1 Jun – 30 Jun 2026 · 30 days')
   })
 })
 
@@ -485,24 +487,31 @@ describe('error state', () => {
   })
 })
 
+// The plan is deliberately surfaced three times — the growth coach, the power
+// moves and the full plan — so queries for its content have to say which one
+// they mean.
+async function findPlanSection() {
+  const heading = await screen.findByRole('heading', { name: 'Action plan' })
+  return within(heading.closest('section'))
+}
+
 describe('action plan', () => {
   it('renders the prioritised buckets from the API', async () => {
     render(<DashboardPage />)
+    const plan = await findPlanSection()
 
-    expect(await screen.findByRole('heading', { name: 'Action plan' })).toBeInTheDocument()
-    expect(screen.getByText('High priority')).toBeInTheDocument()
-    expect(screen.getByText('Medium priority')).toBeInTheDocument()
-    expect(screen.getByText('Low priority')).toBeInTheDocument()
+    expect(plan.getByText('High priority')).toBeInTheDocument()
+    expect(plan.getByText('Medium priority')).toBeInTheDocument()
+    expect(plan.getByText('Low priority')).toBeInTheDocument()
   })
 
   it('shows each action with the finding that justifies it', async () => {
     render(<DashboardPage />)
+    const plan = await findPlanSection()
 
+    expect(plan.getByText('1. Reorder Power Bank before it runs out')).toBeInTheDocument()
     expect(
-      await screen.findByText('1. Reorder Power Bank before it runs out'),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByText(/Power Bank has 1\.6 days of stock cover/),
+      plan.getByText(/Power Bank has 1\.6 days of stock cover/),
     ).toBeInTheDocument()
   })
 
@@ -551,18 +560,22 @@ describe('action plan', () => {
       }),
     )
     render(<DashboardPage />)
+    const plan = await findPlanSection()
 
-    expect(await screen.findByText(/Nothing needs attention/)).toBeInTheDocument()
+    expect(plan.getByText(/Nothing needs attention/)).toBeInTheDocument()
   })
 
   it('keeps the dashboard usable when only the plan fails', async () => {
     getActionPlan.mockRejectedValue(new Error('plan unavailable'))
     render(<DashboardPage />)
 
-    // KPI cards still render; only the plan shows an error.
+    // The revenue card still renders; only the plan and the panels that
+    // summarise it report the failure.
     expect(await screen.findByText('₹34,64,429')).toBeInTheDocument()
-    expect(screen.getByText('Could not load the action plan')).toBeInTheDocument()
-    expect(screen.getByText('plan unavailable')).toBeInTheDocument()
+    const alert = within(
+      screen.getByText('Could not load the action plan').closest('[role="alert"]'),
+    )
+    expect(alert.getByText('plan unavailable')).toBeInTheDocument()
   })
 
   it('is hidden while the dashboard itself has no data', async () => {
@@ -908,5 +921,209 @@ describe('charts', () => {
     ).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Orders' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Customers: new vs repeat' })).toBeInTheDocument()
+  })
+})
+
+describe('page header', () => {
+  it('labels the period from the API response, not a fixed month', async () => {
+    render(<DashboardPage />)
+
+    expect(await screen.findByText('M001 · JUNE')).toBeInTheDocument()
+  })
+
+  it('follows the API when the period moves to another month', async () => {
+    getDashboard.mockResolvedValue(
+      buildDashboard({
+        summary: { ...buildDashboard().summary, period_end: '2026-03-31' },
+      }),
+    )
+    render(<DashboardPage />)
+
+    expect(await screen.findByText('M001 · MARCH')).toBeInTheDocument()
+  })
+
+  it('offers a link to each section of the page', async () => {
+    render(<DashboardPage />)
+
+    const nav = within(screen.getAllByRole('navigation', { name: 'Sections' })[0])
+    expect(nav.getByRole('link', { name: 'Business pulse' })).toHaveAttribute(
+      'href',
+      '#business-pulse',
+    )
+    expect(nav.getByRole('link', { name: 'Growth lab' })).toHaveAttribute('href', '#growth-lab')
+    expect(nav.getByRole('link', { name: 'Customers' })).toHaveAttribute('href', '#customers')
+  })
+
+  it('marks the section being viewed as the current one', async () => {
+    render(<DashboardPage />)
+
+    const nav = within(screen.getAllByRole('navigation', { name: 'Sections' })[0])
+    expect(nav.getByRole('link', { name: 'Business pulse' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    expect(nav.getByRole('link', { name: 'Growth lab' })).not.toHaveAttribute('aria-current')
+  })
+})
+
+describe('greeting', () => {
+  // The line describes momentum, so it has to follow the measured growth
+  // rather than always claiming the business is doing well.
+  it('does not claim things look good when the recent week fell', async () => {
+    render(<DashboardPage />)
+
+    expect(await screen.findByText(/Your last week eased off a little/)).toBeInTheDocument()
+  })
+
+  it('says so when the recent week rose', async () => {
+    getDashboard.mockResolvedValue(
+      buildDashboard({
+        summary: { ...buildDashboard().summary, revenue_growth_rate: 0.184 },
+      }),
+    )
+    render(<DashboardPage />)
+
+    expect(await screen.findByText(/Your week looks beautiful today/)).toBeInTheDocument()
+  })
+
+  it('stays neutral when the period is too short to measure growth', async () => {
+    getDashboard.mockResolvedValue(
+      buildDashboard({ summary: { ...buildDashboard().summary, days: 5 } }),
+    )
+    render(<DashboardPage />)
+
+    expect(await screen.findByText(/Here is where your business stands today/)).toBeInTheDocument()
+  })
+})
+
+describe('growth coach', () => {
+  async function findCoach() {
+    const heading = await screen.findByRole('heading', { name: /AI growth coach/i })
+    return within(heading.closest('section'))
+  }
+
+  it('leads with the highest-priority action from the plan', async () => {
+    render(<DashboardPage />)
+    const coach = await findCoach()
+
+    expect(
+      coach.getByRole('heading', { name: 'Reorder Power Bank before it runs out' }),
+    ).toBeInTheDocument()
+  })
+
+  it('shows the finding behind the suggestion rather than asserting it alone', async () => {
+    render(<DashboardPage />)
+    const coach = await findCoach()
+
+    expect(coach.getByText(/Power Bank has 1\.6 days of stock cover/)).toBeInTheDocument()
+  })
+
+  it('does not invent a move when the plan is empty', async () => {
+    getActionPlan.mockResolvedValue(
+      buildActionPlan({ high: [], medium: [], low: [], truncated: false, notes: [] }),
+    )
+    render(<DashboardPage />)
+    const coach = await findCoach()
+
+    expect(coach.getByText(/Nothing needs your attention/)).toBeInTheDocument()
+    expect(coach.queryByRole('button', { name: /Open my growth plan/ })).not.toBeInTheDocument()
+  })
+
+  it('reports a plan failure instead of showing a stale or blank suggestion', async () => {
+    getActionPlan.mockRejectedValue(new Error('plan unavailable'))
+    render(<DashboardPage />)
+    const coach = await findCoach()
+
+    expect(coach.getByText(/could not load its suggestion/)).toBeInTheDocument()
+  })
+
+  it('offers a way through to the full plan', async () => {
+    const user = userEvent.setup()
+    render(<DashboardPage />)
+    const coach = await findCoach()
+
+    // jsdom has no scrollIntoView; the click must still be harmless.
+    await user.click(coach.getByRole('button', { name: /Open my growth plan/ }))
+    expect(screen.getByRole('heading', { name: 'Action plan' })).toBeInTheDocument()
+  })
+})
+
+describe('power moves', () => {
+  async function findMoves() {
+    const heading = await screen.findByRole('heading', { name: /power moves/i })
+    return within(heading.closest('section'))
+  }
+
+  it('lists the top actions in the order the backend ranked them', async () => {
+    render(<DashboardPage />)
+    const moves = await findMoves()
+
+    const items = moves.getAllByRole('listitem')
+    expect(items).toHaveLength(3)
+    expect(items[0]).toHaveTextContent('Reorder Power Bank before it runs out')
+    expect(items[1]).toHaveTextContent('Protect the revenue you have gained')
+    expect(items[2]).toHaveTextContent('Decide what to do about Screen Guard')
+  })
+
+  it('shows each move with the priority the backend assigned it', async () => {
+    render(<DashboardPage />)
+    const moves = await findMoves()
+
+    expect(moves.getByText('High priority')).toBeInTheDocument()
+    expect(moves.getByText('Medium priority')).toBeInTheDocument()
+    expect(moves.getByText('Low priority')).toBeInTheDocument()
+  })
+
+  it('says nothing needs doing rather than padding the list', async () => {
+    getActionPlan.mockResolvedValue(
+      buildActionPlan({ high: [], medium: [], low: [], truncated: false, notes: [] }),
+    )
+    render(<DashboardPage />)
+    const moves = await findMoves()
+
+    expect(moves.queryAllByRole('listitem')).toHaveLength(0)
+    expect(moves.getByText(/Nothing needs attention/)).toBeInTheDocument()
+  })
+})
+
+describe('customer rhythm', () => {
+  async function findRhythm() {
+    const heading = await screen.findByRole('heading', { name: 'Your customer rhythm' })
+    return within(heading.closest('section'))
+  }
+
+  it('shows every weekday, Monday first', async () => {
+    render(<DashboardPage />)
+    const rhythm = await findRhythm()
+
+    const labels = rhythm
+      .getAllByRole('listitem')
+      .map((item) => item.querySelector('p').textContent.trim())
+    expect(labels).toEqual(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'])
+  })
+
+  it('names the strongest day from the data rather than assuming the weekend', async () => {
+    getDashboard.mockResolvedValue(
+      buildDashboard({
+        daily: [
+          { ...buildDashboard().daily[0], date: '2026-06-01', revenue: 100 },
+          { ...buildDashboard().daily[0], date: '2026-06-03', revenue: 900 },
+          { ...buildDashboard().daily[0], date: '2026-06-06', revenue: 200 },
+        ],
+      }),
+    )
+    render(<DashboardPage />)
+    const rhythm = await findRhythm()
+
+    expect(rhythm.getByText('Wed is your strongest day')).toBeInTheDocument()
+  })
+
+  it('explains an empty period instead of drawing seven empty bars', async () => {
+    getDashboard.mockResolvedValue(buildDashboard({ daily: [] }))
+    render(<DashboardPage />)
+    const rhythm = await findRhythm()
+
+    expect(rhythm.getByText(/no daily totals in this period/)).toBeInTheDocument()
+    expect(rhythm.queryAllByRole('listitem')).toHaveLength(0)
   })
 })

@@ -7,6 +7,7 @@ lifecycle — start, report, clean shutdown — was verified by running
 
 from __future__ import annotations
 
+import io
 import socket
 import sys
 from pathlib import Path
@@ -130,6 +131,24 @@ def test_detects_an_ipv6_only_listener():
         assert runner.port_in_use(port) is True
 
 
+def test_external_service_monitor_reports_the_first_closed_port(monkeypatch):
+    states = iter([True, False])
+    monkeypatch.setattr(runner, "port_in_use", lambda _port: next(states))
+
+    stopped = runner.unavailable_external_service(
+        [("backend", 8000), ("frontend", 5173)]
+    )
+
+    assert stopped == "frontend"
+
+
+def test_external_service_monitor_accepts_running_services(monkeypatch):
+    monkeypatch.setattr(runner, "port_in_use", lambda _port: True)
+    assert runner.unavailable_external_service(
+        [("backend", 8000), ("frontend", 5173)]
+    ) is None
+
+
 # --------------------------------------------------------------------------
 # Preflight
 # --------------------------------------------------------------------------
@@ -190,6 +209,29 @@ def test_reports_the_moved_port_only_once(capsys):
     capsys.readouterr()
     watch("Local:   http://localhost:5174/\n")
     assert capsys.readouterr().out == ""
+
+
+def test_output_the_console_cannot_encode_does_not_stop_the_pump(monkeypatch):
+    """Vite prints "➜". On a cp1252 console that must not kill the thread that
+    drains Vite's pipe, or Vite eventually blocks writing to it."""
+    buffer = io.BytesIO()
+    console = io.TextIOWrapper(buffer, encoding="cp1252")  # strict, like Windows
+    monkeypatch.setattr(sys, "stdout", console)
+
+    lines = ["  ➜  Local:   http://localhost:5173/\n", "ready\n"]
+
+    class FakeProcess:
+        stdout = iter(lines)
+
+    seen: list[str] = []
+    runner.stream_output(FakeProcess(), "frontend", watch=seen.append).join(timeout=5)
+    console.flush()
+
+    # Every line still reached the port watcher and the console.
+    assert seen == lines
+    text = buffer.getvalue().decode("cp1252")
+    assert "Local:   http://localhost:5173/" in text
+    assert "[frontend] ready" in text
 
 
 # --------------------------------------------------------------------------

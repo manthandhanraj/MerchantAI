@@ -24,6 +24,10 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./vitest.setup.js'],
+    // Comfortably above the 5s Testing Library waits for (see vitest.setup.js).
+    // Equal values meant the test budget expired before a failing query could
+    // report what it had been looking for.
+    testTimeout: 15000,
   },
   server: {
     port: 5173,

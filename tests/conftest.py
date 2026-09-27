@@ -106,3 +106,21 @@ def write_dataset(tmp_path, sales_rows, customer_rows):
 def dataset(write_dataset):
     """The valid baseline dataset, loaded."""
     return write_dataset()
+
+
+@pytest.fixture(autouse=True)
+def _isolated_local_accounts(tmp_path, monkeypatch):
+    """Point built-in accounts at a throwaway directory for every test.
+
+    Without this, any test that reached a private route in built-in mode would
+    create a real database and signing secret under data/local/ in the working
+    tree. Each test gets its own empty store and a fresh secret.
+    """
+    from backend.app.config import settings
+    from backend.app.services import local_auth
+
+    monkeypatch.setattr(settings, "local_data_dir", str(tmp_path / "local-accounts"))
+    monkeypatch.setattr(settings, "local_auth_secret", "")
+    local_auth.reset_caches()
+    yield
+    local_auth.reset_caches()

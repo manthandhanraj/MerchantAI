@@ -97,6 +97,33 @@ def _normalise_customers(frame: pd.DataFrame) -> pd.DataFrame:
     return out[CUSTOMERS_COLUMNS].sort_values(["date", "merchant_id"]).reset_index(drop=True)
 
 
+def dataset_from_frames(
+    raw_sales: pd.DataFrame,
+    raw_customers: pd.DataFrame,
+    validate: bool = True,
+) -> Dataset:
+    """Validate and normalise two raw frames into a `Dataset`.
+
+    This is the single place a `Dataset` is constructed, whichever source the
+    rows came from: the committed synthetic CSVs, or a merchant's own uploaded
+    files. Everything downstream — metrics, analysis, recommendations, the
+    action plan, the forecast and the assistant — therefore behaves identically
+    for demo and private data, because it cannot tell them apart.
+
+    Both frames must already carry the canonical columns, dates as YYYY-MM-DD
+    strings and values as text or numbers. Nothing is repaired here.
+    """
+    report = validate_dataset(raw_sales, raw_customers)
+    if validate:
+        report.raise_if_invalid()
+
+    return Dataset(
+        sales=_normalise_sales(raw_sales),
+        customers=_normalise_customers(raw_customers),
+        validation=report,
+    )
+
+
 def read_dataset(
     sales_path: Path,
     customers_path: Path,
@@ -107,17 +134,10 @@ def read_dataset(
     Raises `DatasetNotFoundError` if a file is missing and
     `DatasetValidationError` if validation finds errors. Nothing is repaired.
     """
-    raw_sales = _read_csv(sales_path, "sales")
-    raw_customers = _read_csv(customers_path, "customers")
-
-    report = validate_dataset(raw_sales, raw_customers)
-    if validate:
-        report.raise_if_invalid()
-
-    return Dataset(
-        sales=_normalise_sales(raw_sales),
-        customers=_normalise_customers(raw_customers),
-        validation=report,
+    return dataset_from_frames(
+        _read_csv(sales_path, "sales"),
+        _read_csv(customers_path, "customers"),
+        validate=validate,
     )
 
 

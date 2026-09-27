@@ -14,7 +14,7 @@ Design notes:
 * **Nothing is hard-coded.** Paths are derived from this file's location, ports
   are read from `.env` and `vite.config.js`, and the interpreter is discovered.
 * **No duplicate servers.** A port already in use means that service is already
-  running, so the runner leaves it alone and says so.
+  running, so the runner leaves it alone and monitors it until Ctrl+C.
 * **Errors are surfaced.** If either process exits unexpectedly, the runner
   reports the exit code and shuts the other one down rather than hanging.
 """
@@ -135,6 +135,14 @@ def port_in_use(port: int) -> bool:
     return False
 
 
+def unavailable_external_service(services: list[tuple[str, int]]) -> str | None:
+    """Return the first externally started service that is no longer listening."""
+    for label, port in services:
+        if not port_in_use(port):
+            return label
+    return None
+
+
 # --------------------------------------------------------------------------
 # Preflight
 # --------------------------------------------------------------------------
@@ -204,6 +212,21 @@ def spawn(command: list[str], cwd: Path) -> subprocess.Popen:
     )
 
 
+def echo(text: str) -> None:
+    """Write a child's output even when this console cannot encode all of it.
+
+    Vite prints "➜", which a cp1252 stdout (Windows, output piped) cannot
+    encode. Unhandled, that error kills the pump thread, and a child whose pipe
+    is no longer drained blocks on its next write once the buffer fills.
+    """
+    try:
+        sys.stdout.write(text)
+    except UnicodeEncodeError:
+        encoding = getattr(sys.stdout, "encoding", None) or "ascii"
+        sys.stdout.write(text.encode(encoding, errors="replace").decode(encoding))
+    sys.stdout.flush()
+
+
 def stream_output(process: subprocess.Popen, label: str, watch=None) -> threading.Thread:
     """Echo a child's output with a prefix so two logs stay readable as one.
 
@@ -215,8 +238,7 @@ def stream_output(process: subprocess.Popen, label: str, watch=None) -> threadin
         if process.stdout is None:
             return
         for line in process.stdout:
-            sys.stdout.write(f"[{label}] {line}")
-            sys.stdout.flush()
+            echo(f"[{label}] {line}")
             if watch is not None:
                 watch(line)
 
@@ -343,6 +365,10 @@ def main(argv: list[str] | None = None) -> int:
         print("\nPreflight passed. Everything needed to start is in place.")
         return 0
 
+    # ``main`` is also exercised repeatedly by tests and may be called more
+    # than once by an embedding process. Do not inherit an earlier stop signal.
+    _stop_requested.clear()
+
     host = backend_host()
     api_port = backend_port()
     web_port = frontend_port()
@@ -351,6 +377,7 @@ def main(argv: list[str] | None = None) -> int:
     frontend_running = port_in_use(web_port)
 
     processes: list[tuple[str, subprocess.Popen]] = []
+    external_services: list[tuple[str, int]] = []
 
     if backend_running or frontend_running:
         # A hard kill (Windows TerminateProcess) cannot be intercepted, so a
@@ -363,6 +390,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if backend_running:
         print(f"  Backend   already running on port {api_port}, leaving it alone")
+        external_services.append(("backend", api_port))
     else:
         backend = spawn(
             [python_executable(), "-m", "uvicorn", BACKEND_APP, "--host", host, "--port", str(api_port)],
@@ -373,16 +401,14 @@ def main(argv: list[str] | None = None) -> int:
 
     if frontend_running:
         print(f"  Frontend  already running on port {web_port}, leaving it alone")
+        external_services.append(("frontend", web_port))
     else:
         frontend = spawn([npm_executable(), "run", "dev"], cwd=PROJECT_ROOT / "frontend")
         stream_output(frontend, "frontend", watch=watch_frontend_port(web_port))
         processes.append(("frontend", frontend))
 
     if not processes:
-        print("\nBoth services are already running. Nothing to start.")
-        print(f"  Frontend  http://localhost:{web_port}")
-        print(f"  Backend   http://{host}:{api_port}")
-        return 0
+        print("\nBoth services are already running. Monitoring them until Ctrl+C.")
 
     print()
     print(f"  Frontend  http://localhost:{web_port}      <- open this")
@@ -392,7 +418,11 @@ def main(argv: list[str] | None = None) -> int:
     print("  The AI assistant answers from the merchant's own data.")
     print("  A language model is used only if LLM_ENABLED=true and a key is set.")
     print()
-    print("  Press Ctrl+C to stop both.")
+    if external_services:
+        print("  Press Ctrl+C to stop this monitor.")
+        print("  Services started outside this runner will be left running.")
+    else:
+        print("  Press Ctrl+C to stop both.")
     print("=" * 60)
     print()
 
@@ -403,6 +433,14 @@ def main(argv: list[str] | None = None) -> int:
         # Watch both children. If either exits on its own, something is wrong:
         # say which one and with what code, then bring the other down too.
         while not _stop_requested.is_set():
+            unavailable = unavailable_external_service(external_services)
+            if unavailable is not None:
+                print(f"\n{unavailable} is no longer listening.")
+                print("Shutting down any service started by this runner.")
+                exit_code = 1
+                _stop_requested.set()
+                break
+
             for label, process in processes:
                 code = process.poll()
                 if code is not None:
@@ -414,7 +452,8 @@ def main(argv: list[str] | None = None) -> int:
             _stop_requested.wait(0.5)
 
         if exit_code == 0:
-            print("\n\nStopping MerchantAI…")
+            action = "Stopping MerchantAI…" if processes else "Stopping MerchantAI monitor…"
+            print(f"\n\n{action}")
     except KeyboardInterrupt:
         # Belt and braces: an interrupt that arrives before the handler is
         # installed still lands here.
@@ -422,7 +461,10 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         for label, process in processes:
             stop(process, label)
-        print("  all processes stopped")
+        if external_services:
+            print("  monitor stopped; externally started services were left running")
+        else:
+            print("  all processes stopped")
 
     return exit_code
 

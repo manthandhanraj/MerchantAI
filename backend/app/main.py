@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 
 from backend.app.config import settings
 from backend.app.routes import (
+    accounts,
     action_plan,
     assistant,
     dashboard,
@@ -23,6 +24,7 @@ from backend.app.routes import (
     health,
     insights,
     recommendations,
+    workspace,
 )
 
 logger = logging.getLogger(__name__)
@@ -49,6 +51,8 @@ app.include_router(recommendations.router)
 app.include_router(action_plan.router)
 app.include_router(forecast.router)
 app.include_router(assistant.router)
+app.include_router(workspace.router)
+app.include_router(accounts.router)
 
 
 @app.exception_handler(Exception)

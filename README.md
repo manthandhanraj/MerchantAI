@@ -8,8 +8,46 @@ MerchantAI reads a merchant's business data and answers the three questions a
 small merchant actually has: *what is happening*, *why*, and *what should I do
 today*. It is a business partner, not a dashboard.
 
-> **All data is synthetic.** MerchantAI uses generated demo data only. It does
-> not use, and does not claim access to, private Paytm data or APIs.
+It runs in two modes:
+
+### Accounts work out of the box
+
+Open the app and you land on **sign in**. From there anyone can:
+
+| | |
+| --- | --- |
+| **Create new account** | Name, email, password — the account is created and signed in immediately |
+| **Sign in** | With the account they created, from any browser |
+| **Try demo account** | A seeded, synthetic, read-only workspace; credentials are shown on the page |
+
+Both ways in are always offered: the demo sits on the sign-in page and the sign-up
+page, and a demo visitor who wants to use their own data clicks **Create your own
+account**, which leaves the demo and opens sign-up.
+
+A new account starts empty: create a business, upload a sales file and a customer
+file, run the analysis, get the dashboard and a downloadable PDF report. **Every
+account's data is saved** — sign out, restart the server, sign back in, and it is
+all still there. No account can see another's data.
+
+Two account systems, chosen automatically:
+
+| | When | Where data lives |
+| --- | --- | --- |
+| **Built-in** (default) | No Supabase keys set | `data/local/` on this machine — SQLite plus your files (git-ignored) |
+| **Supabase** | `SUPABASE_URL` + `SUPABASE_ANON_KEY` set | Supabase Postgres and private Storage |
+
+Built-in accounts are real accounts: passwords are hashed with scrypt and never
+stored, sessions are signed tokens verified by the server on every request, and
+repeated wrong passwords are throttled. They need nothing configured. For a
+public production deployment, use Supabase — see
+[docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md).
+
+The original public dashboard is still at `/demo` and needs no account.
+
+> **The demo data is synthetic.** MerchantAI uses generated demo data for the
+> public demo. It does not use, and does not claim access to, private Paytm data
+> or APIs. Data you upload to a private workspace is yours, stays private to your
+> account, and is never made public.
 
 ## What it does
 
@@ -21,6 +59,8 @@ today*. It is a business partner, not a dashboard.
 | **Forecasting** | Short-term revenue/sales forecast |
 | **AI assistant** | Plain-language Q&A grounded in the merchant's own numbers |
 | **Action plan** | A prioritised High / Medium / Low list of what to do next |
+| **Private workspaces** | Sign up, create a business, upload your own CSVs, get the same analysis |
+| **Business reports** | Downloadable PDF built from exactly the figures on your dashboard |
 
 The assistant is grounded by design: every number it quotes is computed in
 Python by the same analytics layer that feeds the dashboard. The LLM explains
@@ -28,10 +68,11 @@ and phrases — it never calculates. See [docs/ARCHITECTURE.md](docs/ARCHITECTUR
 
 ## Tech stack
 
-**Frontend** — React, Vite, Tailwind CSS v4, Recharts
+**Frontend** — React, React Router, Vite, Tailwind CSS v4, Recharts
 **Backend** — Python, FastAPI, Uvicorn, Pydantic
 **Analytics** — pandas, NumPy
-**Storage** — CSV (no database; the dataset is small and read-only)
+**Auth and data** — Supabase (Auth, PostgreSQL with Row Level Security, private Storage)
+**Demo storage** — CSV (the synthetic demo needs no database)
 
 Every dependency has a stated reason, and the notable *exclusions* are justified
 too, in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
@@ -70,13 +111,37 @@ even when the virtualenv is not active. It never installs anything: if something
 is missing it tells you the exact command to run. If a port is already in use it
 leaves that service alone rather than starting a duplicate.
 
+The API does not reload itself. After pulling or changing backend code, stop
+the running app with **Ctrl+C** and start it again. Otherwise the old API keeps
+serving, and the runner will leave it alone. A login page whose demo shows
+"running an older version" is this situation.
+
 ### Environment
 
 Copy `.env.example` to `.env` if you want to change anything — the defaults work
-as they are:
+as they are, and the public demo needs nothing configured:
 
 ```bash
 cp .env.example .env
+```
+
+**Accounts need no setup.** With no Supabase keys, MerchantAI uses its built-in
+accounts and stores everything under `data/local/`. To use Supabase instead,
+follow [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md). Check which mode you
+are in with:
+
+```bash
+curl http://127.0.0.1:8000/api/health
+```
+
+`auth_mode` is `local` or `supabase`; `persistent_storage` is `false` only where
+data would not survive a restart (see below).
+
+**Forgot a password (built-in accounts)?** There is no email service behind
+built-in accounts, so the administrator resets it:
+
+```bash
+python scripts/reset_password.py --email someone@example.com
 ```
 
 The synthetic dataset is committed, so there is nothing to generate. To rebuild
@@ -209,6 +274,8 @@ Vercel runs the function directly.
 | [STAGE_7_COMPLETION.md](docs/STAGE_7_COMPLETION.md) | Stage 7 decisions and sign-off |
 | [STAGE_8_COMPLETION.md](docs/STAGE_8_COMPLETION.md) | Stage 8 audit, fixes and sign-off |
 | [STAGE_9_COMPLETION.md](docs/STAGE_9_COMPLETION.md) | Stage 9 push, deployment config and status |
+| [WORKSPACE_ARCHITECTURE.md](docs/WORKSPACE_ARCHITECTURE.md) | Auth flow, database schema, RLS, storage, upload contract |
+| [SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md) | Connect a new Supabase project, step by step |
 
 ## Development roadmap
 
@@ -244,3 +311,18 @@ the web app, including the Node process the dev server spawns.
 
 Secrets are read from the environment and never hard-coded. `.env` is
 git-ignored; `.env.example` holds placeholders only. Do not commit API keys.
+
+For the private workspace:
+
+- The backend verifies the Supabase access token on **every** private endpoint
+  and derives the user from the signature. A user id sent by the client is
+  never trusted.
+- Row Level Security is enabled and forced on every private table, so the
+  database refuses cross-user access independently of the API.
+- Storage buckets are private; downloads use short-lived signed URLs issued only
+  after ownership is confirmed.
+- The `service_role` key is **not** used by any route and must never appear in
+  a `VITE_` variable or anywhere under `frontend/`.
+
+See [docs/WORKSPACE_ARCHITECTURE.md](docs/WORKSPACE_ARCHITECTURE.md) for the
+full model, including its documented limitations.

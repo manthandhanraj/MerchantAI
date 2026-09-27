@@ -58,3 +58,7 @@ data/scratch/
 .codex-finalizer/
 .chart-data-*/
 output/
+
+# Built-in accounts: user databases, uploaded business files, generated
+# reports and the token-signing secret. Private user data — never commit it.
+data/local/

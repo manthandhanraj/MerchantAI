@@ -16,6 +16,11 @@ pydantic-settings>=2.6.0  # Loads configuration from .env
 pandas>=2.2.0             # CSV loading, aggregation, trend analysis
 numpy>=1.26.0             # Numeric helpers behind the metrics layer
 
+# ---------- Private workspace (Supabase) ----------
+pyjwt[crypto]>=2.9.0      # Verifies Supabase access tokens (HS256 and JWKS).
+httpx>=0.27.0             # The only HTTP client used to reach Supabase REST/Storage.
+python-multipart>=0.0.9   # Parses the multipart upload form. Required by FastAPI's File/Form.
+
 # ---------- Testing ----------
 pytest>=8.3.0             # Test runner
 httpx2>=2.13.0            # Transport behind FastAPI's TestClient. Starlette now

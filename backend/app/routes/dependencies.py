@@ -10,10 +10,15 @@ from __future__ import annotations
 from datetime import date
 from typing import Annotated
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, Header, HTTPException
 
+from backend.app.config import settings
+
+from backend.app.services.auth import AuthError, AuthUser, user_from_header
 from backend.app.services.data_loader import Dataset, DatasetNotFoundError, get_dataset
+from backend.app.services.supabase_client import SupabaseClient
 from backend.app.services.validation import DatasetValidationError
+from backend.app.services.workspace import WorkspaceError
 
 
 def load_dataset() -> Dataset:
@@ -51,3 +56,50 @@ def validate_query(dataset: Dataset, merchant_id: str, start: date | None, end: 
             status_code=400,
             detail=f"Invalid date range: start ({start}) is after end ({end}).",
         )
+
+
+# --------------------------------------------------------------------------
+# Private workspace
+# --------------------------------------------------------------------------
+def current_user(authorization: str | None = Header(default=None)) -> AuthUser:
+    """The verified caller, or a 401.
+
+    The user is derived from the token's signature, never from a header, body
+    field or query parameter the client controls. `WWW-Authenticate` is set so
+    a browser client can tell an expired session from a permissions problem.
+    """
+    try:
+        return user_from_header(authorization)
+    except AuthError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=str(exc),
+            headers={"WWW-Authenticate": "Bearer"} if exc.status_code == 401 else None,
+        ) from exc
+
+
+CurrentUser = Annotated[AuthUser, Depends(current_user)]
+
+
+def supabase_for(user: CurrentUser) -> SupabaseClient:
+    """A data client scoped to the caller.
+
+    With Supabase, requests carry the caller's own token, so PostgREST and
+    Storage evaluate that user's Row Level Security policies. With built-in
+    accounts, the store is constructed for the verified user id and confines
+    every operation to that user's rows. Either way the API never acts with
+    elevated privileges on a user-facing path.
+    """
+    if settings.resolved_auth_mode == "local":
+        from backend.app.services.local_store import LocalStore
+
+        return LocalStore(user_id=user.id)  # type: ignore[return-value]
+    return SupabaseClient(access_token=user.token)
+
+
+UserClient = Annotated[SupabaseClient, Depends(supabase_for)]
+
+
+def workspace_http_error(exc: WorkspaceError) -> HTTPException:
+    """Translate a workspace failure into its HTTP form, message intact."""
+    return HTTPException(status_code=exc.status_code, detail=str(exc))

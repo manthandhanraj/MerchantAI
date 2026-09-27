@@ -77,7 +77,12 @@ function rangeForPreset(merchant, presetId) {
   }
 }
 
-export default function DashboardPage() {
+/**
+ * @param {boolean} [embedded] Render without the page chrome, so the same
+ *   dashboard can sit inside the authenticated workspace shell during the
+ *   local demo instead of being duplicated.
+ */
+export default function DashboardPage({ embedded = false }) {
   const [merchants, setMerchants] = useState([])
   const [merchantsLoading, setMerchantsLoading] = useState(true)
   const [merchantsError, setMerchantsError] = useState(null)
@@ -355,12 +360,18 @@ export default function DashboardPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-ink text-cream">
-      <TopNav merchantId={merchantId} live={!merchantsError && !merchantsLoading} />
+    <div className={embedded ? '' : 'min-h-screen bg-ink text-cream'}>
+      {!embedded && (
+        <TopNav merchantId={merchantId} live={!merchantsError && !merchantsLoading} />
+      )}
 
       <main
         id="business-pulse"
-        className="mx-auto max-w-7xl scroll-mt-28 px-4 py-8 sm:px-6 lg:px-8"
+        className={
+          embedded
+            ? 'scroll-mt-28'
+            : 'mx-auto max-w-7xl scroll-mt-28 px-4 py-8 sm:px-6 lg:px-8'
+        }
       >
         {/* Greeting, with the controls that scope everything below it. */}
         <GreetingHeader

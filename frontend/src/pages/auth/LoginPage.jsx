@@ -112,6 +112,17 @@ export default function LoginPage() {
     setDemoError(null)
     setBusy(true)
     try {
+      // Serverless local storage cannot keep an account session alive between
+      // requests. If the visitor typed the published demo credentials instead
+      // of pressing its button, honour the same safe stateless fallback.
+      if (
+        demo.workspaceUrl &&
+        email.trim().toLowerCase() === demo.email.toLowerCase() &&
+        password === demo.password
+      ) {
+        navigate(demo.workspaceUrl, { replace: true })
+        return
+      }
       await attempt({ email, password })
     } catch (caught) {
       setError(caught.message)
@@ -130,6 +141,10 @@ export default function LoginPage() {
       // with the credentials printed above, not a hidden back door.
       setEmail(account.email)
       setPassword(account.password)
+      if (account.workspaceUrl) {
+        navigate(account.workspaceUrl, { replace: true })
+        return
+      }
       await attempt({ email: account.email, password: account.password })
     } catch (caught) {
       setDemoError(caught.message)
@@ -262,6 +277,11 @@ export default function LoginPage() {
                   No sign-up needed. A working example with synthetic data. Read-only, so
                   everyone sees the same thing.
                 </p>
+                {demo.workspaceUrl && (
+                  <p className="mt-2 text-xs leading-relaxed text-sage">
+                    Opens the secure read-only demo directly on this serverless deployment.
+                  </p>
+                )}
 
                 {demo.available ? (
                   <dl className="mt-3 space-y-1 text-xs">

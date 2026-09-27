@@ -21,6 +21,7 @@ const PASSWORD = import.meta.env.VITE_DEMO_PASSWORD ?? ''
 export const demoAccount = {
   email: EMAIL,
   password: PASSWORD,
+  workspaceUrl: null,
   /** Both halves are needed; half a credential helps nobody. */
   available: Boolean(EMAIL && PASSWORD),
 }
@@ -65,7 +66,12 @@ export function useDemoCredentials() {
       throw new Error(DEMO_NOT_SET_UP)
     }
 
-    const account = { email: body.email, password: body.password, available: true }
+    const account = {
+      email: body.email,
+      password: body.password,
+      workspaceUrl: body.workspace_url || null,
+      available: true,
+    }
     setState({ ...account, offered: true, error: null })
     return account
   }, [])

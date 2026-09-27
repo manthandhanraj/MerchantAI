@@ -42,6 +42,7 @@ function renderLogin(entry = '/login') {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/app" element={<p>Workspace</p>} />
+        <Route path="/demo" element={<p>Public demo dashboard</p>} />
         <Route path="/signup" element={<p>Signup screen</p>} />
       </Routes>
     </MemoryRouter>,
@@ -192,6 +193,23 @@ describe('demo account', () => {
       expect(screen.getByLabelText(/email or account id/i)).toHaveValue('demo@merchantai.app'),
     )
     expect(screen.getByLabelText(/^password$/i)).toHaveValue('demo-pass-1234')
+  })
+
+  it('opens the stateless demo on a serverless local deployment without creating a broken session', async () => {
+    const user = userEvent.setup()
+    demo = {
+      ...DEMO,
+      workspaceUrl: '/demo',
+      offered: true,
+      error: null,
+      load: vi.fn(),
+    }
+    renderLogin()
+
+    await user.click(screen.getByRole('button', { name: /try demo account/i }))
+
+    expect(await screen.findByText('Public demo dashboard')).toBeInTheDocument()
+    expect(signIn).not.toHaveBeenCalled()
   })
 
   it('reports a demo failure instead of hanging', async () => {

@@ -62,10 +62,18 @@ def demo_credentials() -> dict:
     """
     if settings.resolved_auth_mode != "local":
         return {"available": False}
+    persistent = settings.local_storage_persistent
     return {
         "available": bool(settings.demo_user_email and settings.demo_password),
         "email": settings.demo_user_email,
         "password": settings.demo_password,
+        # A Vercel function's /tmp database and generated signing secret can be
+        # different on the very next request. Issuing a local-account session
+        # there creates a login loop: sign-in succeeds, then /api/me rejects the
+        # token and the browser returns to /login. The committed synthetic demo
+        # is stateless, so serverless deployments open that instead. A durable
+        # account workspace still requires Supabase (the production path).
+        "workspace_url": None if persistent else "/demo",
     }
 
 

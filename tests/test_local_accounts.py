@@ -491,6 +491,16 @@ def test_demo_credentials_are_published(client):
     assert body["password"] == settings.demo_password
 
 
+def test_serverless_demo_uses_stateless_workspace(client, monkeypatch):
+    monkeypatch.setattr(settings, "local_data_dir", "")
+    monkeypatch.setenv("VERCEL", "1")
+
+    body = client.get("/api/auth/demo").json()
+
+    assert body["available"] is True
+    assert body["workspace_url"] == "/demo"
+
+
 def test_demo_login_seeds_a_populated_workspace(client):
     creds = client.get("/api/auth/demo").json()
     response = client.post(

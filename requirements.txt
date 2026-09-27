@@ -13,8 +13,13 @@ pydantic>=2.9.0           # Request/response + dataset row validation
 pydantic-settings>=2.6.0  # Loads configuration from .env
 
 # ---------- Data / analytics ----------
-pandas>=2.2.0             # CSV loading, aggregation, trend analysis
-numpy>=1.26.0             # Numeric helpers behind the metrics layer
+# Capped deliberately. Windows Smart App Control blocks unsigned DLLs until
+# Microsoft has seen them widely, and it refused pandas 3.0.x's compiled modules,
+# which crashed the backend on start. pandas 2.3 with a numpy of the same period
+# loads cleanly and passes the whole test suite; newer numpy makes pandas 2.3
+# emit "generic timedelta unit" deprecations, hence the numpy cap too.
+pandas>=2.2.0,<3.0        # CSV loading, aggregation, trend analysis
+numpy>=1.26.0,<2.4        # Numeric helpers behind the metrics layer
 
 # ---------- Private workspace (Supabase) ----------
 pyjwt[crypto]>=2.9.0      # Verifies Supabase access tokens (HS256 and JWKS).

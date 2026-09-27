@@ -116,6 +116,13 @@ the running app with **Ctrl+C** and start it again. Otherwise the old API keeps
 serving, and the runner will leave it alone. A login page whose demo shows
 "running an older version" is this situation.
 
+**Windows with Smart App Control on:** Windows refuses to load unsigned DLLs it
+has not seen widely, which includes the compiled parts of brand-new pandas
+releases. The backend then crashes on start and the runner stops with it.
+`requirements.txt` caps pandas and numpy at versions Windows allows, and
+`python runner.py --check` reports a blocked package with the exact reinstall
+command.
+
 ### Environment
 
 Copy `.env.example` to `.env` if you want to change anything — the defaults work

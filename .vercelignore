@@ -1,5 +1,6 @@
 # Keep the deployment bundle to what production actually needs.
 .venv/
+.venv-*/
 venv/
 __pycache__/
 *.pyc

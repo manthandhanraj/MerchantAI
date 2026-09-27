@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import io
 import socket
+import subprocess
 import sys
 from pathlib import Path
 
@@ -172,6 +173,65 @@ def test_preflight_reports_a_missing_backend(monkeypatch, tmp_path):
     monkeypatch.setattr(runner, "PROJECT_ROOT", tmp_path)
     problems = runner.preflight()
     assert any("backend/app/main.py not found" in problem for problem in problems)
+
+
+BLOCKED_STDERR = (
+    "Traceback (most recent call last):\n"
+    '  File "pandas\\_libs\\tslibs\\__init__.py", line 82, in <module>\n'
+    "ImportError: DLL load failed while importing vectorized: "
+    "An Application Control policy has blocked this file.\n"
+)
+
+
+def _failing_import(stderr, seen=None):
+    def fake_run(command, **kwargs):
+        if seen is not None:
+            seen.append(command)
+        return subprocess.CompletedProcess(command, 1, stdout="", stderr=stderr)
+
+    return fake_run
+
+
+def test_preflight_imports_the_packages_that_ship_dlls(monkeypatch):
+    """pandas and numpy carry compiled DLLs; checking only fastapi and uvicorn
+    let a blocked pandas through, and the backend then died mid-start."""
+    seen = []
+    monkeypatch.setattr(runner.subprocess, "run", _failing_import("", seen))
+    runner.preflight()
+    code = seen[0][-1]
+    assert "pandas" in code and "numpy" in code
+
+
+def test_preflight_explains_a_windows_application_control_block(monkeypatch):
+    monkeypatch.setattr(runner.subprocess, "run", _failing_import(BLOCKED_STDERR))
+    problems = runner.preflight()
+
+    blocked = [p for p in problems if "Smart App Control" in p]
+    assert len(blocked) == 1
+    assert "(vectorized)" in blocked[0]
+    assert "-m pip install -r requirements.txt" in blocked[0]
+    assert not any("dependencies are missing" in p for p in problems)
+
+
+def test_preflight_still_reports_plainly_missing_packages(monkeypatch):
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        _failing_import("ModuleNotFoundError: No module named 'pandas'\n"),
+    )
+    problems = runner.preflight()
+    assert any("Backend dependencies are missing" in p for p in problems)
+    assert not any("Smart App Control" in p for p in problems)
+
+
+def test_a_block_during_startup_is_noticed_in_the_backend_log():
+    lines = []
+    watch = runner.collect_blocked_imports(lines)
+    watch("INFO:     Waiting for application startup.\n")
+    watch("ImportError: DLL load failed while importing vectorized: An Application Control policy has blocked this file.\n")
+
+    assert len(lines) == 1
+    assert "(vectorized)" in runner.describe_import_failure("".join(lines))
 
 
 def test_check_flag_exits_zero_without_starting_anything(capsys):

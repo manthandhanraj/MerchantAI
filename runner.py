@@ -163,16 +163,18 @@ def preflight() -> list[str]:
         problems.append("frontend/package.json not found. Is the frontend directory intact?")
 
     interpreter = python_executable()
+    # numpy and pandas are imported too: they ship compiled DLLs, and one that
+    # Windows refuses to load would otherwise only surface as the backend
+    # crashing mid-start, taking the whole app down with it.
     check = subprocess.run(
-        [interpreter, "-c", "import fastapi, uvicorn"],
+        [interpreter, "-c", "import fastapi, uvicorn, numpy, pandas"],
         capture_output=True,
+        text=True,
+        errors="replace",
         cwd=str(PROJECT_ROOT),
     )
     if check.returncode != 0:
-        problems.append(
-            "Backend dependencies are missing. Install them with:\n"
-            "    pip install -r requirements.txt"
-        )
+        problems.append(describe_import_failure(check.stderr or "", interpreter))
 
     if not (PROJECT_ROOT / "frontend" / "node_modules").exists():
         problems.append(
@@ -184,6 +186,27 @@ def preflight() -> list[str]:
         problems.append("npm was not found on PATH. Install Node.js 18+ and reopen the terminal.")
 
     return problems
+
+
+# What Windows says when Smart App Control / App Control for Business refuses
+# to load an unsigned DLL, such as a compiled module inside a Python package.
+APPLICATION_CONTROL_BLOCK = "Application Control policy has blocked"
+
+
+def describe_import_failure(stderr: str, interpreter: str | None = None) -> str:
+    """Turn a failed dependency import into the problem and its fix."""
+    reinstall = f'    "{interpreter or python_executable()}" -m pip install -r requirements.txt'
+    if APPLICATION_CONTROL_BLOCK in stderr:
+        module = re.search(r"while importing (\S+?):", stderr)
+        which = f" ({module.group(1)})" if module else ""
+        return (
+            f"Windows Smart App Control blocked a file inside an installed Python package{which}.\n"
+            "    It only lets unsigned files run once Microsoft has seen them widely, so it\n"
+            "    tends to block brand-new package releases. requirements.txt pins versions\n"
+            "    that Windows allows; reinstall them with:\n"
+            f"{reinstall}"
+        )
+    return f"Backend dependencies are missing. Install them with:\n{reinstall}"
 
 
 def dataset_present() -> bool:
@@ -272,6 +295,20 @@ def watch_frontend_port(expected: int):
                 f"\n  Note: port {expected} was taken, so the frontend is on "
                 f"http://localhost:{actual}\n  Open that instead.\n"
             )
+
+    return watch
+
+
+def collect_blocked_imports(lines: list[str]):
+    """Return a line-watcher that keeps any "blocked by Application Control" line.
+
+    Some DLLs (uvicorn's, for instance) load only once the server starts, after
+    preflight has passed, so the runner also listens for the block at runtime.
+    """
+
+    def watch(line: str) -> None:
+        if APPLICATION_CONTROL_BLOCK in line:
+            lines.append(line)
 
     return watch
 
@@ -378,6 +415,7 @@ def main(argv: list[str] | None = None) -> int:
 
     processes: list[tuple[str, subprocess.Popen]] = []
     external_services: list[tuple[str, int]] = []
+    blocked_imports: list[str] = []
 
     if backend_running or frontend_running:
         # A hard kill (Windows TerminateProcess) cannot be intercepted, so a
@@ -396,7 +434,7 @@ def main(argv: list[str] | None = None) -> int:
             [python_executable(), "-m", "uvicorn", BACKEND_APP, "--host", host, "--port", str(api_port)],
             cwd=PROJECT_ROOT,
         )
-        stream_output(backend, "backend")
+        stream_output(backend, "backend", watch=collect_blocked_imports(blocked_imports))
         processes.append(("backend", backend))
 
     if frontend_running:
@@ -446,6 +484,8 @@ def main(argv: list[str] | None = None) -> int:
                 if code is not None:
                     print(f"\n{label} exited unexpectedly with code {code}.")
                     print("Its output is above. Shutting down the rest.")
+                    if blocked_imports:
+                        print("\n  " + describe_import_failure("".join(blocked_imports)))
                     exit_code = code or 1
                     _stop_requested.set()
                     break
